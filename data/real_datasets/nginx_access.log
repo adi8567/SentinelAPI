@@ -1,0 +1,20 @@
+198.51.100.42 - - [25/Oct/2026:10:00:01 +0000] "GET /api/v1/health HTTP/1.1" 200 48 "-" "kube-probe/1.28" 0.002 0.001 120
+203.0.113.15 - - [25/Oct/2026:10:00:05 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 642 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" 0.085 0.082 340
+203.0.113.15 - - [25/Oct/2026:10:00:07 +0000] "GET /api/v1/users/profile HTTP/1.1" 200 1280 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" 0.024 0.021 180
+198.51.100.88 - - [25/Oct/2026:10:00:10 +0000] "GET /api/v1/catalog/products?category=electronics&limit=20 HTTP/1.1" 200 8420 "https://app.sentinel.io/shop" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" 0.045 0.041 260
+198.51.100.88 - - [25/Oct/2026:10:00:14 +0000] "GET /api/v1/catalog/products/prod_99214 HTTP/1.1" 200 2340 "https://app.sentinel.io/shop" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" 0.018 0.016 195
+198.51.100.88 - - [25/Oct/2026:10:00:18 +0000] "POST /api/v1/cart/items HTTP/1.1" 201 512 "https://app.sentinel.io/shop" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" 0.038 0.035 380
+192.0.2.140 - - [25/Oct/2026:10:00:22 +0000] "POST /api/v1/orders/checkout HTTP/1.1" 200 1850 "https://app.sentinel.io/cart" "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" 0.245 0.240 820
+192.0.2.140 - - [25/Oct/2026:10:00:25 +0000] "POST /api/v1/payments/process HTTP/1.1" 200 920 "https://app.sentinel.io/checkout" "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" 0.412 0.408 610
+203.0.113.81 - - [25/Oct/2026:10:00:30 +0000] "GET /api/v1/orders/ord_55219 HTTP/1.1" 200 1620 "-" "Mozilla/5.0 (X11; Linux x86_64)" 0.031 0.029 210
+198.51.100.199 - - [25/Oct/2026:10:00:35 +0000] "GET /api/v1/catalog/search?q=wireless+headphones HTTP/1.1" 200 4120 "-" "curl/7.88.1" 0.052 0.049 220
+198.51.100.199 - - [25/Oct/2026:10:00:40 +0000] "GET /api/v1/catalog/search?q=noise+cancelling HTTP/1.1" 200 3980 "-" "curl/7.88.1" 0.048 0.045 215
+192.0.2.250 - - [25/Oct/2026:10:00:45 +0000] "GET /api/v1/admin/metrics HTTP/1.1" 403 210 "-" "python-requests/2.31.0" 0.012 0.010 160
+192.0.2.250 - - [25/Oct/2026:10:00:48 +0000] "GET /api/v1/admin/users HTTP/1.1" 401 190 "-" "python-requests/2.31.0" 0.008 0.007 150
+203.0.113.99 - - [25/Oct/2026:10:00:52 +0000] "DELETE /api/v1/cart/items/item_8812 HTTP/1.1" 204 0 "-" "Mozilla/5.0" 0.022 0.020 170
+198.51.100.77 - - [25/Oct/2026:10:01:00 +0000] "POST /api/v1/auth/refresh HTTP/1.1" 200 450 "-" "Dart/3.1 (dart:io)" 0.035 0.032 290
+203.0.113.111 - - [25/Oct/2026:10:01:05 +0000] "GET /api/v1/reports/export?format=csv HTTP/1.1" 200 64200 "-" "Mozilla/5.0" 0.890 0.880 240
+192.0.2.73 - - [25/Oct/2026:10:01:10 +0000] "GET /api/v1/notifications HTTP/1.1" 200 890 "-" "Mozilla/5.0" 0.015 0.014 185
+198.51.100.12 - - [25/Oct/2026:10:01:15 +0000] "PATCH /api/v1/users/settings HTTP/1.1" 200 340 "-" "Mozilla/5.0" 0.028 0.026 310
+203.0.113.4 - - [25/Oct/2026:10:01:20 +0000] "GET /api/v1/nonexistent/resource HTTP/1.1" 404 180 "-" "Go-http-client/1.1" 0.005 0.004 140
+198.51.100.33 - - [25/Oct/2026:10:01:25 +0000] "POST /api/v1/webhooks/stripe HTTP/1.1" 200 64 "-" "Stripe/1.0 (+https://stripe.com/docs/webhooks)" 0.065 0.062 780

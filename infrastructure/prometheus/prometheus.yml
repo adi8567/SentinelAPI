@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "sentinelapi-backend"
+    scrape_interval: 5s
+    metrics_path: "/api/v1/health"
+    static_configs:
+      - targets: ["backend:8000"]

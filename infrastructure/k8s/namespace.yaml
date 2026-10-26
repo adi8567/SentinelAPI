@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinelapi
+  labels:
+    app.kubernetes.io/name: sentinelapi
+    app.kubernetes.io/part-of: sentinel-platform

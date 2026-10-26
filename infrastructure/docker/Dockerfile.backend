@@ -1,0 +1,40 @@
+# SentinelAPI Backend Containerfile
+FROM python:3.12-slim
+
+# Prevent Python from writing .pyc and enable buffer-free logging
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency specifications and install
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r /app/backend/requirements.txt
+
+# Copy source code and real datasets
+COPY backend /app/backend
+COPY data /app/data
+COPY run_ingest_cli.py /app/run_ingest_cli.py
+
+# Create non-root user for security
+RUN useradd -m -u 10001 sentineluser && \
+    mkdir -p /app/data && \
+    chown -R sentineluser:sentineluser /app
+
+USER sentineluser
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health/ready || exit 1
+
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
