@@ -77,6 +77,87 @@ class DuckDBStorageRepository(IStorageRepository):
             conn.execute("CREATE INDEX IF NOT EXISTS idx_events_path ON api_events (path);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_events_status ON api_events (status_code);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_events_ip ON api_events (client_ip);")
+
+            # 3. Discovered Endpoints
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS endpoints (
+                    endpoint_id VARCHAR PRIMARY KEY,
+                    http_method VARCHAR,
+                    path_template VARCHAR,
+                    sample_raw_paths VARCHAR,
+                    first_seen_at TIMESTAMP WITH TIME ZONE,
+                    last_seen_at TIMESTAMP WITH TIME ZONE,
+                    call_count BIGINT,
+                    parameters VARCHAR,
+                    is_authenticated BOOLEAN,
+                    auth_types_observed VARCHAR,
+                    status_codes_observed VARCHAR,
+                    risk_level VARCHAR,
+                    tags VARCHAR,
+                    metadata VARCHAR
+                );
+            """)
+
+            # 4. Discovered Clients
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS clients (
+                    client_id VARCHAR PRIMARY KEY,
+                    client_type VARCHAR,
+                    ip_address VARCHAR,
+                    user_agents_observed VARCHAR,
+                    first_seen_at TIMESTAMP WITH TIME ZONE,
+                    last_seen_at TIMESTAMP WITH TIME ZONE,
+                    total_requests BIGINT,
+                    error_count BIGINT,
+                    distinct_endpoints_count INT,
+                    observed_endpoints VARCHAR,
+                    geo_country VARCHAR,
+                    reputation_score DOUBLE
+                );
+            """)
+
+            # 5. Client Sessions
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_id VARCHAR PRIMARY KEY,
+                    identity VARCHAR,
+                    client_ip VARCHAR,
+                    user_agent VARCHAR,
+                    started_at TIMESTAMP WITH TIME ZONE,
+                    last_activity_at TIMESTAMP WITH TIME ZONE,
+                    event_count INT,
+                    endpoint_sequence VARCHAR,
+                    status_sequence VARCHAR
+                );
+            """)
+
+            # 6. Statistical Baselines
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS baselines (
+                    baseline_id VARCHAR PRIMARY KEY,
+                    endpoint_id VARCHAR,
+                    client_id VARCHAR,
+                    window_type VARCHAR,
+                    sample_size BIGINT,
+                    req_rate_mean DOUBLE,
+                    req_rate_std DOUBLE,
+                    latency_p50 DOUBLE,
+                    latency_p90 DOUBLE,
+                    latency_p95 DOUBLE,
+                    latency_p99 DOUBLE,
+                    latency_mean DOUBLE,
+                    latency_std DOUBLE,
+                    request_size_mean DOUBLE,
+                    request_size_std DOUBLE,
+                    response_size_mean DOUBLE,
+                    response_size_std DOUBLE,
+                    status_code_distribution VARCHAR,
+                    seasonality_hour_of_day VARCHAR,
+                    seasonality_day_of_week VARCHAR,
+                    updated_at TIMESTAMP WITH TIME ZONE,
+                    version INT
+                );
+            """)
             return conn
 
         loop = asyncio.get_event_loop()
@@ -297,6 +378,168 @@ class DuckDBStorageRepository(IStorageRepository):
         async with self._lock:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, _metrics, self._conn)
+
+    async def store_inventory_records(
+        self,
+        endpoints: List[Any],
+        clients: List[Any],
+        sessions: List[Any],
+    ) -> None:
+        if not self._conn:
+            await self.initialize()
+
+        ep_rows = [
+            (
+                e.endpoint_id,
+                e.http_method,
+                e.path_template,
+                json.dumps(e.sample_raw_paths),
+                e.first_seen_at,
+                e.last_seen_at,
+                e.call_count,
+                json.dumps({k: v.model_dump() for k, v in e.parameters.items()}),
+                e.is_authenticated,
+                json.dumps(e.auth_types_observed),
+                json.dumps(e.status_codes_observed),
+                e.risk_level.value,
+                json.dumps(e.tags),
+                json.dumps(e.metadata),
+            )
+            for e in endpoints
+        ]
+
+        cl_rows = [
+            (
+                c.client_id,
+                c.client_type.value,
+                c.ip_address,
+                json.dumps(c.user_agents_observed),
+                c.first_seen_at,
+                c.last_seen_at,
+                c.total_requests,
+                c.error_count,
+                c.distinct_endpoints_count,
+                json.dumps(c.observed_endpoints),
+                c.geo_country,
+                c.reputation_score,
+            )
+            for c in clients
+        ]
+
+        sess_rows = [
+            (
+                s.session_id,
+                s.identity,
+                s.client_ip,
+                s.user_agent,
+                s.started_at,
+                s.last_activity_at,
+                s.event_count,
+                json.dumps(s.endpoint_sequence),
+                json.dumps(s.status_sequence),
+            )
+            for s in sessions
+        ]
+
+        def _persist(conn):
+            if ep_rows:
+                conn.executemany("""
+                    INSERT OR REPLACE INTO endpoints VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    );
+                """, ep_rows)
+            if cl_rows:
+                conn.executemany("""
+                    INSERT OR REPLACE INTO clients VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    );
+                """, cl_rows)
+            if sess_rows:
+                conn.executemany("""
+                    INSERT OR REPLACE INTO sessions VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    );
+                """, sess_rows)
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _persist, self._conn)
+
+    async def store_baselines(
+        self,
+        endpoint_baselines: List[Any],
+        client_baselines: List[Any],
+    ) -> None:
+        if not self._conn:
+            await self.initialize()
+
+        base_rows = [
+            (
+                b.baseline_id,
+                b.endpoint_id,
+                None,
+                b.window_type.value,
+                b.sample_size,
+                b.req_rate_mean,
+                b.req_rate_std,
+                b.latency_p50,
+                b.latency_p90,
+                b.latency_p95,
+                b.latency_p99,
+                b.latency_mean,
+                b.latency_std,
+                b.request_size_mean,
+                b.request_size_std,
+                b.response_size_mean,
+                b.response_size_std,
+                json.dumps(b.status_code_distribution),
+                json.dumps(b.seasonality_hour_of_day),
+                json.dumps(b.seasonality_day_of_week),
+                b.updated_at,
+                b.version,
+            )
+            for b in endpoint_baselines
+        ]
+
+        def _persist_baselines(conn):
+            if base_rows:
+                conn.executemany("""
+                    INSERT OR REPLACE INTO baselines VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    );
+                """, base_rows)
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _persist_baselines, self._conn)
+
+    async def apply_retention_policy(
+        self,
+        raw_retention_days: int = 30,
+        events_retention_days: int = 90,
+    ) -> Dict[str, int]:
+        if not self._conn:
+            await self.initialize()
+
+        def _purge(conn):
+            now = datetime.now(timezone.utc)
+            # Delete old raw audit records
+            raw_res = conn.execute(
+                f"DELETE FROM raw_events WHERE received_at < now() - INTERVAL '{raw_retention_days} days'"
+            ).fetchone()
+            deleted_raw = raw_res[0] if raw_res else 0
+
+            # Delete old api_events
+            ev_res = conn.execute(
+                f"DELETE FROM api_events WHERE timestamp < now() - INTERVAL '{events_retention_days} days'"
+            ).fetchone()
+            deleted_events = ev_res[0] if ev_res else 0
+
+            return {"deleted_raw_logs": deleted_raw, "deleted_api_events": deleted_events}
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _purge, self._conn)
 
     async def health_check(self) -> Dict[str, Any]:
         try:

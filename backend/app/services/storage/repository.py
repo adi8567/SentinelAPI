@@ -59,6 +59,34 @@ class IStorageRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def store_inventory_records(
+        self,
+        endpoints: List[Any],
+        clients: List[Any],
+        sessions: List[Any],
+    ) -> None:
+        """Persists discovered endpoints, client profiles, and sessions."""
+        pass
+
+    @abc.abstractmethod
+    async def store_baselines(
+        self,
+        endpoint_baselines: List[Any],
+        client_baselines: List[Any],
+    ) -> None:
+        """Persists learned statistical behavioral baselines."""
+        pass
+
+    @abc.abstractmethod
+    async def apply_retention_policy(
+        self,
+        raw_retention_days: int = 30,
+        events_retention_days: int = 90,
+    ) -> Dict[str, int]:
+        """Purges old records according to data retention policies."""
+        pass
+
+    @abc.abstractmethod
     async def health_check(self) -> Dict[str, Any]:
         """Validates connection and returns engine health status."""
         pass

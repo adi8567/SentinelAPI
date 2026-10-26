@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""SentinelAPI Ingestion CLI Tool.
+"""SentinelAPI Ingestion, Inventory & Baseline Learning CLI Tool.
 
-Enables batch ingestion of real API traffic log files, automated verification,
-and pipeline metrics inspection.
+Enables batch ingestion of real API traffic log files, automated asset discovery,
+statistical baseline training, and metrics verification.
 """
 
 import argparse
@@ -22,7 +22,9 @@ from rich.panel import Panel
 
 from backend.app.core.config import settings
 from backend.app.schemas.events import LogSource
+from backend.app.services.baseline.batch_learner import batch_baseline_learner
 from backend.app.services.ingestion.pipeline import ingestion_pipeline
+from backend.app.services.inventory.inventory_service import inventory_service
 from backend.app.services.storage.factory import get_storage
 from backend.app.services.streaming.kafka_client import stream_producer
 
@@ -66,7 +68,7 @@ async def ingest_file(file_path: Path, source_type: LogSource = LogSource.AUTO) 
 
 
 async def run_cli():
-    parser = argparse.ArgumentParser(description="SentinelAPI Real Data Ingestion Runner")
+    parser = argparse.ArgumentParser(description="SentinelAPI Real Data Ingestion & Learning Runner")
     parser.add_argument("--file", "-f", type=str, help="Path to a log file to ingest")
     parser.add_argument("--all", "-a", action="store_true", help="Ingest all files in data/real_datasets/")
     parser.add_argument("--source", "-s", type=str, default="auto", help="Log format: auto, nginx, envoy, kong, aws_apigw, azure_apim, gcp_endpoints, opentelemetry")
@@ -80,7 +82,7 @@ async def run_cli():
     await stream_producer.start()
 
     console.print(Panel.fit(
-        f"[bold green]SentinelAPI Traffic Ingestion Engine[/bold green]\n"
+        f"[bold green]SentinelAPI Traffic Ingestion & Learning Engine[/bold green]\n"
         f"Storage Engine: [bold cyan]{settings.STORAGE_BACKEND.value}[/bold cyan] | "
         f"Streaming: [bold cyan]{settings.STREAMING_BACKEND.value}[/bold cyan]",
         title="SentinelAPI v1.0"
@@ -106,7 +108,7 @@ async def run_cli():
             await ingest_file(df, source_type=LogSource.AUTO)
             console.print("-" * 50)
 
-    # Verification Table
+    # 1. Verification Table
     total_events = await storage.get_total_events_count()
     metrics = await storage.get_traffic_metrics()
 
@@ -126,23 +128,69 @@ async def run_cli():
 
     console.print(stats_table)
 
-    # Top endpoints table
-    top_eps = metrics.get("top_endpoints", [])
-    if top_eps:
-        ep_table = Table(title="Top Ingested API Endpoints")
-        ep_table.add_column("Method", style="green")
-        ep_table.add_column("Endpoint Path", style="blue")
-        ep_table.add_column("Requests", style="yellow")
-        ep_table.add_column("Avg Latency (ms)", style="cyan")
+    # 2. Discovered API Inventory Table
+    discovered_endpoints = inventory_service.list_endpoints()
+    inv_table = Table(title=f"Discovered API Inventory ({len(discovered_endpoints)} Unique Endpoints)")
+    inv_table.add_column("Method", style="green")
+    inv_table.add_column("Path Template", style="blue")
+    inv_table.add_column("Risk", style="bold")
+    inv_table.add_column("Calls", style="yellow")
+    inv_table.add_column("Auth?", style="cyan")
+    inv_table.add_column("Parameters", style="magenta")
 
-        for ep in top_eps[:10]:
-            ep_table.add_row(ep["method"], ep["path"], str(ep["count"]), f"{ep['avg_latency_ms']:.2f}")
+    risk_colors = {
+        "low": "green",
+        "medium": "yellow",
+        "high": "red",
+        "critical": "bold red on white",
+    }
 
-        console.print(ep_table)
+    for ep in discovered_endpoints[:15]:
+        r_color = risk_colors.get(ep.risk_level.value, "white")
+        params_str = ", ".join(ep.parameters.keys()) if ep.parameters else "-"
+        auth_str = "Yes (" + ", ".join(ep.auth_types_observed) + ")" if ep.is_authenticated else "No"
+        inv_table.add_row(
+            ep.http_method,
+            ep.path_template,
+            f"[{r_color}]{ep.risk_level.value.upper()}[/{r_color}]",
+            str(ep.call_count),
+            auth_str,
+            params_str,
+        )
+
+    console.print(inv_table)
+
+    # 3. Train and Display Statistical Baselines
+    console.print("[cyan]Recomputing batch statistical baselines over all historical traffic...[/cyan]")
+    base_res = await batch_baseline_learner.compute_all_baselines()
+    console.print(f"[green]Learned baselines for {base_res.endpoints_computed} endpoints across {base_res.total_events_analyzed} real events in {base_res.execution_time_ms:.2f}ms.[/green]\n")
+
+    base_table = Table(title="Learned Endpoint Statistical Baselines")
+    base_table.add_column("Endpoint ID", style="cyan")
+    base_table.add_column("Sample Size", style="yellow")
+    base_table.add_column("p50 Lat (ms)", style="green")
+    base_table.add_column("p90 Lat (ms)", style="blue")
+    base_table.add_column("p95 Lat (ms)", style="magenta")
+    base_table.add_column("Mean ± Std (ms)", style="cyan")
+    base_table.add_column("Status Distribution", style="white")
+
+    for b in batch_baseline_learner.get_all_endpoint_baselines()[:12]:
+        status_str = ", ".join(f"{k}:{int(v*100)}%" for k, v in b.status_code_distribution.items())
+        base_table.add_row(
+            b.endpoint_id[:10] + "...",
+            str(b.sample_size),
+            f"{b.latency_p50:.1f}",
+            f"{b.latency_p90:.1f}",
+            f"{b.latency_p95:.1f}",
+            f"{b.latency_mean:.1f} ± {b.latency_std:.1f}",
+            status_str,
+        )
+
+    console.print(base_table)
 
     await stream_producer.stop()
     await storage.close()
-    console.print("\n[bold green]Ingestion pipeline run finished successfully![/bold green]")
+    console.print("\n[bold green]SentinelAPI Phase 2 verification completed successfully![/bold green]")
 
 
 if __name__ == "__main__":

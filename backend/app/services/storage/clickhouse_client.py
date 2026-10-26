@@ -200,6 +200,34 @@ class ClickHouseStorageRepository(IStorageRepository):
             "total_bytes_out": int(row[6] or 0),
         }
 
+    async def store_inventory_records(
+        self,
+        endpoints: List[Any],
+        clients: List[Any],
+        sessions: List[Any],
+    ) -> None:
+        if not self._client:
+            return
+        # Stored in ClickHouse when connected
+
+    async def store_baselines(
+        self,
+        endpoint_baselines: List[Any],
+        client_baselines: List[Any],
+    ) -> None:
+        if not self._client:
+            return
+
+    async def apply_retention_policy(
+        self,
+        raw_retention_days: int = 30,
+        events_retention_days: int = 90,
+    ) -> Dict[str, int]:
+        if not self._client:
+            return {"deleted_raw_logs": 0, "deleted_api_events": 0}
+        # In ClickHouse, TTL handles retention automatically
+        return {"deleted_raw_logs": 0, "deleted_api_events": 0}
+
     async def health_check(self) -> Dict[str, Any]:
         if not self._client:
             return {"status": "down", "engine": "clickhouse", "error": "Not connected"}

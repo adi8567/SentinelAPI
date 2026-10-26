@@ -16,7 +16,9 @@ from backend.app.schemas.events import (
     LogSource,
     ParseErrorDetail,
 )
+from backend.app.services.baseline.online_updater import online_baseline_updater
 from backend.app.services.ingestion.auto_detector import parser_registry
+from backend.app.services.inventory.inventory_service import inventory_service
 from backend.app.services.storage.factory import get_storage
 from backend.app.services.storage.repository import IStorageRepository
 from backend.app.services.streaming.kafka_client import stream_producer
@@ -102,7 +104,12 @@ class IngestionPipeline:
         # 4. Store normalized events in analytical storage
         stored_count = await storage.store_events(events)
 
-        # 5. Update metrics
+        # 5. Continuous Online Inventory Discovery & Baseline Tracking
+        await inventory_service.process_batch(events)
+        for ev in events:
+            online_baseline_updater.observe_event(ev)
+
+        # 6. Update metrics
         raw_bytes = sum(len(line.encode("utf-8")) for line in raw_lines)
         async with self._lock:
             self._total_events_ingested += stored_count
@@ -148,7 +155,12 @@ class IngestionPipeline:
         # 2. Store in database
         stored_count = await storage.store_events(events)
 
-        # 3. Update metrics
+        # 3. Continuous Online Inventory Discovery & Baseline Tracking
+        await inventory_service.process_batch(events)
+        for ev in events:
+            online_baseline_updater.observe_event(ev)
+
+        # 4. Update metrics
         async with self._lock:
             self._total_events_ingested += stored_count
             for e in events:
