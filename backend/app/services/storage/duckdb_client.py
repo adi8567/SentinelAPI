@@ -158,6 +158,31 @@ class DuckDBStorageRepository(IStorageRepository):
                     version INT
                 );
             """)
+
+            # 7. Anomalies Store
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS anomalies (
+                    anomaly_id VARCHAR PRIMARY KEY,
+                    event_id VARCHAR NOT NULL,
+                    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+                    endpoint_id VARCHAR NOT NULL,
+                    http_method VARCHAR NOT NULL,
+                    path VARCHAR NOT NULL,
+                    client_ip VARCHAR NOT NULL,
+                    client_id VARCHAR NOT NULL,
+                    risk_score DOUBLE NOT NULL,
+                    severity VARCHAR NOT NULL,
+                    primary_detector VARCHAR NOT NULL,
+                    detector_scores VARCHAR,
+                    contributing_factors VARCHAR,
+                    event_snapshot VARCHAR,
+                    is_mitigated BOOLEAN DEFAULT FALSE,
+                    is_false_positive BOOLEAN DEFAULT FALSE,
+                    model_version VARCHAR DEFAULT 'v1.0.0'
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_anom_ts ON anomalies (timestamp);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_anom_risk ON anomalies (risk_score);")
             return conn
 
         loop = asyncio.get_event_loop()
@@ -512,6 +537,90 @@ class DuckDBStorageRepository(IStorageRepository):
         async with self._lock:
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _persist_baselines, self._conn)
+
+    async def store_anomaly(self, anomaly: Any) -> None:
+        if not self._conn:
+            await self.initialize()
+
+        row = (
+            anomaly.anomaly_id,
+            anomaly.event_id,
+            anomaly.timestamp,
+            anomaly.endpoint_id,
+            anomaly.http_method,
+            anomaly.path,
+            anomaly.client_ip,
+            anomaly.client_id,
+            anomaly.risk_score,
+            anomaly.severity.value,
+            anomaly.primary_detector,
+            json.dumps(anomaly.detector_scores),
+            json.dumps(anomaly.contributing_factors),
+            json.dumps(anomaly.event_snapshot),
+            anomaly.is_mitigated,
+            anomaly.is_false_positive,
+            anomaly.model_version,
+        )
+
+        def _insert(conn):
+            conn.execute("""
+                INSERT OR REPLACE INTO anomalies VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                );
+            """, row)
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _insert, self._conn)
+
+    async def query_anomalies(
+        self,
+        severity: Optional[str] = None,
+        endpoint_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+        min_risk_score: Optional[float] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        if not self._conn:
+            await self.initialize()
+
+        conditions = ["1=1"]
+        params: List[Any] = []
+
+        if severity:
+            conditions.append("severity = ?")
+            params.append(severity.lower())
+        if endpoint_id:
+            conditions.append("endpoint_id = ?")
+            params.append(endpoint_id)
+        if client_id:
+            conditions.append("client_id = ?")
+            params.append(client_id)
+        if min_risk_score is not None:
+            conditions.append("risk_score >= ?")
+            params.append(min_risk_score)
+
+        where_clause = " AND ".join(conditions)
+        sql = f"""
+            SELECT * FROM anomalies
+            WHERE {where_clause}
+            ORDER BY timestamp DESC
+            LIMIT ? OFFSET ?
+        """
+        params.extend([limit, offset])
+
+        def _query(conn):
+            cursor = conn.execute(sql, params)
+            columns = [desc[0] for desc in cursor.description]
+            results = []
+            for r in cursor.fetchall():
+                results.append(dict(zip(columns, r)))
+            return results
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _query, self._conn)
 
     async def apply_retention_policy(
         self,

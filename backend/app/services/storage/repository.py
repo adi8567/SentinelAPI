@@ -78,6 +78,24 @@ class IStorageRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def store_anomaly(self, anomaly: Any) -> None:
+        """Persists an evaluated anomaly detection record."""
+        pass
+
+    @abc.abstractmethod
+    async def query_anomalies(
+        self,
+        severity: Optional[str] = None,
+        endpoint_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+        min_risk_score: Optional[float] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """Queries stored anomaly records with filtering."""
+        pass
+
+    @abc.abstractmethod
     async def apply_retention_policy(
         self,
         raw_retention_days: int = 30,

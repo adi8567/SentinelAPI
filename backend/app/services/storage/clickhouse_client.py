@@ -218,6 +218,21 @@ class ClickHouseStorageRepository(IStorageRepository):
         if not self._client:
             return
 
+    async def store_anomaly(self, anomaly: Any) -> None:
+        if not self._client:
+            return
+
+    async def query_anomalies(
+        self,
+        severity: Optional[str] = None,
+        endpoint_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+        min_risk_score: Optional[float] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[Dict[str, Any]]:
+        return []
+
     async def apply_retention_policy(
         self,
         raw_retention_days: int = 30,

@@ -17,6 +17,7 @@ from backend.app.schemas.events import (
     ParseErrorDetail,
 )
 from backend.app.services.baseline.online_updater import online_baseline_updater
+from backend.app.services.detection.engine import anomaly_engine
 from backend.app.services.ingestion.auto_detector import parser_registry
 from backend.app.services.inventory.inventory_service import inventory_service
 from backend.app.services.storage.factory import get_storage
@@ -108,6 +109,7 @@ class IngestionPipeline:
         await inventory_service.process_batch(events)
         for ev in events:
             online_baseline_updater.observe_event(ev)
+            await anomaly_engine.process_and_persist(ev)
 
         # 6. Update metrics
         raw_bytes = sum(len(line.encode("utf-8")) for line in raw_lines)
@@ -159,6 +161,7 @@ class IngestionPipeline:
         await inventory_service.process_batch(events)
         for ev in events:
             online_baseline_updater.observe_event(ev)
+            await anomaly_engine.process_and_persist(ev)
 
         # 4. Update metrics
         async with self._lock:

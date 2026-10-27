@@ -23,6 +23,7 @@ from rich.panel import Panel
 from backend.app.core.config import settings
 from backend.app.schemas.events import LogSource
 from backend.app.services.baseline.batch_learner import batch_baseline_learner
+from backend.app.services.detection.engine import anomaly_engine
 from backend.app.services.ingestion.pipeline import ingestion_pipeline
 from backend.app.services.inventory.inventory_service import inventory_service
 from backend.app.services.storage.factory import get_storage
@@ -188,9 +189,65 @@ async def run_cli():
 
     console.print(base_table)
 
+    # 4. Train ML Models (Isolation Forest & Markov Chains)
+    console.print("\n[cyan]Retraining ML Outlier & Markov Sequence models on real ingested traffic...[/cyan]")
+    ml_res = await anomaly_engine.retrain_models()
+    console.print(
+        f"[green]Models ({', '.join(ml_res.models_retrained)}) retrained successfully "
+        f"across {ml_res.training_sample_size} events in {ml_res.training_duration_ms:.2f}ms "
+        f"[{ml_res.new_version}].[/green]\n"
+    )
+
+    # 5. Display Detected Real-Time Anomalies & Threats
+    detected_anomalies = anomaly_engine.list_anomalies()
+    anom_table = Table(title=f"Detected Anomalies & Threats ({len(detected_anomalies)} Flagged Events)")
+    anom_table.add_column("Severity", style="bold")
+    anom_table.add_column("Risk", style="yellow")
+    anom_table.add_column("Method", style="green")
+    anom_table.add_column("Path", style="blue")
+    anom_table.add_column("Client IP", style="cyan")
+    anom_table.add_column("Primary Detector", style="magenta")
+    anom_table.add_column("Explainable Diagnostics", style="white")
+
+    sev_colors = {
+        "critical": "bold red on white",
+        "high": "red",
+        "medium": "yellow",
+        "low": "cyan",
+        "info": "white",
+    }
+
+    for a in detected_anomalies[:15]:
+        s_color = sev_colors.get(a.severity.value, "white")
+        diag_str = " | ".join(a.contributing_factors) if a.contributing_factors else "Multivariate anomaly"
+        anom_table.add_row(
+            f"[{s_color}]{a.severity.value.upper()}[/{s_color}]",
+            f"{a.risk_score:.1f}",
+            a.http_method,
+            a.path,
+            a.client_ip,
+            a.primary_detector,
+            diag_str[:110] + ("..." if len(diag_str) > 110 else ""),
+        )
+
+    console.print(anom_table)
+
+    # Anomaly Stats breakdown
+    anom_stats = anomaly_engine.get_stats()
+    stats_panel = Panel.fit(
+        f"[bold]Total Anomalies:[/bold] {anom_stats['total_anomalies']} | "
+        f"[bold red]Critical:[/bold red] {anom_stats['severity_breakdown'].get('critical', 0)} | "
+        f"[red]High:[/red] {anom_stats['severity_breakdown'].get('high', 0)} | "
+        f"[yellow]Medium:[/yellow] {anom_stats['severity_breakdown'].get('medium', 0)} | "
+        f"[green]Low/Info:[/green] {anom_stats['severity_breakdown'].get('low', 0) + anom_stats['severity_breakdown'].get('info', 0)}\n"
+        f"[cyan]Risk Score Distribution:[/cyan] {anom_stats['risk_score_distribution']}",
+        title="Real-Time Threat Detection Summary"
+    )
+    console.print(stats_panel)
+
     await stream_producer.stop()
     await storage.close()
-    console.print("\n[bold green]SentinelAPI Phase 2 verification completed successfully![/bold green]")
+    console.print("\n[bold green]SentinelAPI Phase 3 verification completed successfully![/bold green]")
 
 
 if __name__ == "__main__":
