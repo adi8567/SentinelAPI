@@ -32,6 +32,10 @@ async def lifespan(app: FastAPI):
     from backend.app.services.policy.engine import policy_engine
     await policy_engine.initialize()
 
+    # 4. Initialize authentication & user accounts
+    from backend.app.services.auth.auth_service import auth_service
+    await auth_service.initialize()
+
     logger.info("SentinelAPI core services initialized successfully.")
     yield
 
@@ -84,6 +88,8 @@ async def request_context_and_timing_middleware(request: Request, call_next):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
 
         return response
     finally:

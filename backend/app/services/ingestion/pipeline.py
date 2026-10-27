@@ -25,6 +25,7 @@ from backend.app.services.storage.factory import get_storage
 from backend.app.services.storage.repository import IStorageRepository
 from backend.app.services.streaming.kafka_client import stream_producer
 from backend.app.services.streaming.producer import IStreamingProducer
+from backend.app.services.streaming.websocket_manager import ws_manager
 
 logger = logging.getLogger("sentinelapi.pipeline")
 
@@ -111,7 +112,32 @@ class IngestionPipeline:
         for ev in events:
             online_baseline_updater.observe_event(ev)
             anomaly = await anomaly_engine.process_and_persist(ev)
-            await policy_engine.evaluate_and_enforce(ev, anomaly)
+            decision = await policy_engine.evaluate_and_enforce(ev, anomaly)
+
+            # Real-time WebSocket broadcasting
+            asyncio.create_task(ws_manager.broadcast("traffic", {
+                "type": "api_event",
+                "event_id": ev.event_id,
+                "timestamp": ev.timestamp.isoformat(),
+                "http_method": ev.http_method,
+                "path": ev.path,
+                "status_code": ev.status_code,
+                "latency_ms": ev.latency_ms,
+                "client_ip": ev.client_ip,
+            }))
+            if anomaly:
+                asyncio.create_task(ws_manager.broadcast("alerts", {
+                    "type": "anomaly_alert",
+                    "anomaly_id": anomaly.anomaly_id,
+                    "event_id": ev.event_id,
+                    "timestamp": anomaly.timestamp.isoformat(),
+                    "severity": anomaly.severity.value,
+                    "risk_score": anomaly.risk_score,
+                    "endpoint": ev.path,
+                    "client_ip": ev.client_ip,
+                    "decision": decision.action_taken.value if decision else "allow",
+                    "contributing_factors": anomaly.contributing_factors,
+                }))
 
         # 6. Update metrics
         raw_bytes = sum(len(line.encode("utf-8")) for line in raw_lines)
@@ -164,7 +190,32 @@ class IngestionPipeline:
         for ev in events:
             online_baseline_updater.observe_event(ev)
             anomaly = await anomaly_engine.process_and_persist(ev)
-            await policy_engine.evaluate_and_enforce(ev, anomaly)
+            decision = await policy_engine.evaluate_and_enforce(ev, anomaly)
+
+            # Real-time WebSocket broadcasting
+            asyncio.create_task(ws_manager.broadcast("traffic", {
+                "type": "api_event",
+                "event_id": ev.event_id,
+                "timestamp": ev.timestamp.isoformat(),
+                "http_method": ev.http_method,
+                "path": ev.path,
+                "status_code": ev.status_code,
+                "latency_ms": ev.latency_ms,
+                "client_ip": ev.client_ip,
+            }))
+            if anomaly:
+                asyncio.create_task(ws_manager.broadcast("alerts", {
+                    "type": "anomaly_alert",
+                    "anomaly_id": anomaly.anomaly_id,
+                    "event_id": ev.event_id,
+                    "timestamp": anomaly.timestamp.isoformat(),
+                    "severity": anomaly.severity.value,
+                    "risk_score": anomaly.risk_score,
+                    "endpoint": ev.path,
+                    "client_ip": ev.client_ip,
+                    "decision": decision.action_taken.value if decision else "allow",
+                    "contributing_factors": anomaly.contributing_factors,
+                }))
 
         # 4. Update metrics
         async with self._lock:

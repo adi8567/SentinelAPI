@@ -199,6 +199,9 @@ class BatchBaselineLearner:
     def get_endpoint_baseline(self, endpoint_id: str) -> Optional[EndpointBaseline]:
         return self._endpoint_baselines.get(endpoint_id)
 
+    def get_baseline(self, endpoint_id: str) -> Optional[EndpointBaseline]:
+        return self._endpoint_baselines.get(endpoint_id)
+
     def get_client_baseline(self, client_id: str) -> Optional[ClientBaseline]:
         return self._client_baselines.get(client_id)
 

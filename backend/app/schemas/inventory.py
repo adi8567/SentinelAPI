@@ -48,6 +48,10 @@ class EndpointRecord(BaseModel):
     tags: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    @property
+    def status_codes(self) -> Dict[str, int]:
+        return self.status_codes_observed
+
 
 class ClientRecord(BaseModel):
     """Represents an API consumer identity (IP, User Account, or Service Principal)."""
