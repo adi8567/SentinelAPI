@@ -30,6 +30,10 @@ async def main():
     datasets = [
         ("nginx_access.log", "nginx"),
         ("real_api_sec_attacks.log", "nginx"),
+        ("real_production_access.log", "nginx"),
+        ("real_web_attacks_netsparker.log", "nginx"),
+        ("real_web_attacks_acunetix.log", "nginx"),
+        ("real_web_attacks_w3af.log", "nginx"),
         ("envoy_access.json", "envoy"),
         ("aws_api_gateway.json", "aws_apigw"),
         ("azure_apim.json", "azure_apim"),
@@ -63,25 +67,32 @@ async def main():
                     continue
 
                 lines = [line.strip() for line in file_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+                # If large file, ingest up to 500 representative records to keep ingestion snappy
+                if len(lines) > 500:
+                    lines = lines[:500]
                 print(f"[+] Streaming {len(lines)} records from {filename} ({source})...")
 
-                payload = {
-                    "source_type": source,
-                    "logs": lines,
-                    "gateway_id": f"ingest-{source}",
-                }
-                res = await client.post(f"{api_url}/ingest/raw", json=payload, headers=headers)
-                if res.status_code == 200:
-                    data = res.json()
-                    accepted = data.get("accepted_count", 0)
-                    total_accepted += accepted
-                    print(f"    Accepted: {accepted}/{len(lines)} (Processing: {data.get('processing_time_ms', 0)}ms)")
-                else:
-                    print(f"    [!] Error {res.status_code}: {res.text}")
+                # Chunk in batches of 100
+                chunk_size = 100
+                for i in range(0, len(lines), chunk_size):
+                    chunk = lines[i:i + chunk_size]
+                    payload = {
+                        "source_type": source,
+                        "logs": chunk,
+                        "gateway_id": f"ingest-{source}",
+                    }
+                    res = await client.post(f"{api_url}/ingest/raw", json=payload, headers=headers)
+                    if res.status_code == 200:
+                        data = res.json()
+                        accepted = data.get("accepted_count", 0)
+                        total_accepted += accepted
+                    else:
+                        print(f"    [!] Error {res.status_code}: {res.text}")
+                print(f"    Batch completed for {filename}.")
 
             # Trigger baseline recompute
             print("\n[*] Triggering historical baseline recomputation on running server...")
-            await client.post(f"{api_url}/baseline/recompute", headers=headers)
+            await client.post(f"{api_url}/baselines/recompute", headers=headers)
 
         print("\n" + "=" * 70)
         print(f" Ingestion Complete! {total_accepted} events ingested into live server.")

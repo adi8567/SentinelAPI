@@ -1,0 +1,46 @@
+{
+  "status": "trained",
+  "trained_at": "2026-10-27T13:07:26.442212+00:00",
+  "training_sample_size": 16015,
+  "benign_samples_count": 8000,
+  "attack_samples_count": 8015,
+  "test_sample_size": 3203,
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "roc_auc": 1.0,
+  "confusion_matrix": [
+    [
+      1600,
+      0
+    ],
+    [
+      0,
+      1603
+    ]
+  ],
+  "feature_importances": {
+    "latency_ms": 0.0007,
+    "req_size": 0.0007,
+    "res_size": 0.2521,
+    "status_code": 0.056,
+    "is_error": 0.0273,
+    "hour_of_day": 0.0899,
+    "day_of_week": 0.3355,
+    "path_length": 0.0231,
+    "path_depth": 0.0091,
+    "query_count": 0.0074,
+    "suspicious_payload": 0.0057,
+    "http_method": 0.1925
+  },
+  "isolation_forest_attack_detection_rate": 0.4019,
+  "isolation_forest_inlier_rate": 0.97,
+  "total_transitions": 6577,
+  "training_duration_ms": 1254.62,
+  "models": {
+    "isolation_forest": "models/isolation_forest.joblib",
+    "threat_classifier": "models/threat_classifier.joblib",
+    "markov_sequence": "models/markov_transitions.json"
+  }
+}

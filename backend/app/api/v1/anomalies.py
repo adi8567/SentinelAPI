@@ -44,6 +44,14 @@ async def get_anomaly_statistics(
     return AnomalyStats(**anomaly_engine.get_stats())
 
 
+@router.get("/models/metrics")
+async def get_models_metrics(
+    principal: CurrentPrincipal,
+) -> Dict[str, Any]:
+    """Returns training metrics, validation scores, and feature importances for all active ML models."""
+    return anomaly_engine.get_models_metrics()
+
+
 @router.get("/{anomaly_id}", response_model=AnomalyRecord)
 async def get_anomaly_detail(
     anomaly_id: str,

@@ -290,6 +290,41 @@ class AnomalyDetectionEngine:
             "recent_anomalies_count_1h": total,
         }
 
+    def get_models_metrics(self) -> Dict[str, Any]:
+        """Returns comprehensive training and evaluation metrics for all active ML models."""
+        from pathlib import Path
+        import json
+        metrics_file = Path(__file__).resolve().parents[4] / "models" / "model_metrics.json"
+
+        if metrics_file.exists():
+            try:
+                metrics_data = json.loads(metrics_file.read_text(encoding="utf-8"))
+                return metrics_data
+            except Exception as e:
+                logger.warning(f"Error reading model metrics file: {e}")
+
+        # Fallback dynamic state if file not present
+        return {
+            "status": "active",
+            "models": {
+                "isolation_forest": {
+                    "name": "Isolation Forest (Unsupervised ML)",
+                    "is_trained": self.ml_detector.is_trained,
+                    "sample_size": self.ml_detector.sample_size,
+                    "model_version": self.ml_detector.model_version,
+                },
+                "markov_sequence": {
+                    "name": "Markov Transition Chains",
+                    "is_trained": self.sequence_detector.is_trained,
+                    "unique_states": len(self.sequence_detector.transition_counts),
+                },
+                "signature_detector": {
+                    "name": "Deterministic Threat Signatures",
+                    "status": "Active (OWASP Top 10)",
+                },
+            },
+        }
+
 
 # Global anomaly detection engine singleton
 anomaly_engine = AnomalyDetectionEngine()

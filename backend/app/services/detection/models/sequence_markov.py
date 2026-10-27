@@ -17,12 +17,35 @@ logger = logging.getLogger("sentinelapi.detection.sequence")
 class MarkovSequenceDetector:
     """Detects sequential anomalies and unauthorized call sequences using transition probabilities."""
 
-    def __init__(self, rare_transition_threshold: float = 0.02):
+    def __init__(self, rare_transition_threshold: float = 0.02, auto_load: bool = True):
         self.rare_transition_threshold = rare_transition_threshold
         # transition_counts[prev_endpoint][next_endpoint] = count
         self.transition_counts: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self.state_totals: Dict[str, int] = defaultdict(int)
         self.is_trained: bool = False
+
+        if auto_load:
+            self._load_from_disk()
+
+    def _load_from_disk(self) -> bool:
+        from pathlib import Path
+        import json
+        base = Path(__file__).resolve().parents[5]
+        model_p = base / "models" / "markov_transitions.json"
+        if model_p.exists():
+            try:
+                data = json.loads(model_p.read_text(encoding="utf-8"))
+                for src, dsts in data.get("transitions", {}).items():
+                    for dst, count in dsts.items():
+                        self.transition_counts[src][dst] = count
+                for src, total in data.get("state_totals", {}).items():
+                    self.state_totals[src] = total
+                self.is_trained = True
+                logger.info(f"Loaded pre-trained Markov Transitions model ({len(self.transition_counts)} states).")
+                return True
+            except Exception as e:
+                logger.warning(f"Could not load pre-trained Markov model: {e}")
+        return False
 
     def train_from_sessions(self, sessions_sequences: List[List[str]]) -> None:
         """Learns transition probabilities from historical session sequences."""

@@ -19,7 +19,7 @@ logger = logging.getLogger("sentinelapi.detection.ml")
 class IsolationForestDetector:
     """Multivariate outlier detector based on scikit-learn Isolation Forest."""
 
-    def __init__(self, contamination: float = 0.05, n_estimators: int = 100):
+    def __init__(self, contamination: float = 0.05, n_estimators: int = 100, auto_load: bool = True):
         self.contamination = contamination
         self.n_estimators = n_estimators
         self.model: Optional[IsolationForest] = None
@@ -28,8 +28,28 @@ class IsolationForestDetector:
         self.sample_size: int = 0
         self.model_version: str = "iforest-v1.0"
 
-    def extract_features(self, event: ApiEvent) -> np.ndarray:
-        """Converts an ApiEvent into a numerical feature vector."""
+        if auto_load:
+            self._load_from_disk()
+
+    def _load_from_disk(self) -> bool:
+        from pathlib import Path
+        import joblib
+        base = Path(__file__).resolve().parents[5]
+        model_p = base / "models" / "isolation_forest.joblib"
+        scaler_p = base / "models" / "scaler.joblib"
+        if model_p.exists() and scaler_p.exists():
+            try:
+                self.model = joblib.load(model_p)
+                self.scaler = joblib.load(scaler_p)
+                self.is_trained = True
+                self.sample_size = getattr(self.model, "n_samples_", 8000)
+                logger.info(f"Loaded pre-trained Isolation Forest model from {model_p}")
+                return True
+            except Exception as e:
+                logger.warning(f"Could not load pre-trained Isolation Forest: {e}")
+        return False
+
+    def _extract_6d(self, event: ApiEvent) -> np.ndarray:
         return np.array([
             float(event.latency_ms),
             float(event.request_size_bytes),
@@ -38,6 +58,44 @@ class IsolationForestDetector:
             float(event.timestamp.hour),
             float(event.timestamp.weekday()),
         ], dtype=np.float64)
+
+    def _extract_12d(self, event: ApiEvent) -> np.ndarray:
+        import re
+        sus_regex = re.compile(
+            r"(\b(union|select|insert|update|delete|drop|benchmark|sleep)\b|['\"<>]|(\.\./))",
+            re.IGNORECASE,
+        )
+        full_target = f"{event.raw_path or event.path}"
+        if event.query_params:
+            full_target += "?" + "&".join(f"{k}={v}" for k, v in event.query_params.items())
+        has_suspicious = 1.0 if sus_regex.search(full_target) else 0.0
+        path_depth = float(len([p for p in event.path.split("/") if p]))
+        query_count = float(len(event.query_params))
+        is_err = 1.0 if event.status_code >= 400 else 0.0
+        method_map = {"GET": 0.0, "POST": 1.0, "PUT": 2.0, "DELETE": 3.0, "PATCH": 4.0}
+        m_val = method_map.get(event.http_method.upper(), 5.0)
+
+        return np.array([
+            float(event.latency_ms),
+            float(event.request_size_bytes),
+            float(event.response_size_bytes),
+            float(event.status_code),
+            is_err,
+            float(event.timestamp.hour),
+            float(event.timestamp.weekday()),
+            float(len(event.path)),
+            path_depth,
+            query_count,
+            has_suspicious,
+            m_val,
+        ], dtype=np.float64)
+
+    def extract_features(self, event: ApiEvent) -> np.ndarray:
+        """Converts an ApiEvent into a numerical feature vector matching scaler dimensions."""
+        expected_dim = getattr(self.scaler, "n_features_in_", 12)
+        if expected_dim == 12:
+            return self._extract_12d(event)
+        return self._extract_6d(event)
 
     def fit(self, events: List[ApiEvent]) -> bool:
         """Trains the Isolation Forest model on historical real events."""
