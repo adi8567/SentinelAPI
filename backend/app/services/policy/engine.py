@@ -57,10 +57,10 @@ class PolicyEngine:
         self._storage = None
 
     async def _get_storage(self):
-        if self._storage is None:
-            from backend.app.services.storage.factory import get_storage
-            self._storage = await get_storage()
-        return self._storage
+        if self._storage is not None:
+            return self._storage
+        from backend.app.services.storage.factory import get_storage
+        return await get_storage()
 
     async def initialize(self) -> None:
         """Loads default policies from configuration file or storage."""

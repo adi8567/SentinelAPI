@@ -36,9 +36,9 @@ class BatchBaselineLearner:
         self._client_baselines: Dict[str, ClientBaseline] = {}
 
     async def _get_storage(self) -> IStorageRepository:
-        if self._storage is None:
-            self._storage = await get_storage()
-        return self._storage
+        if self._storage is not None:
+            return self._storage
+        return await get_storage()
 
     async def compute_all_baselines(self, limit: int = 100000) -> RecomputeBaselinesResult:
         """Executes full baseline recomputation from historical traffic."""

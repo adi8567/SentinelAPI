@@ -65,9 +65,9 @@ class AnomalyDetectionEngine:
         self._lock = asyncio.Lock()
 
     async def _get_storage(self) -> IStorageRepository:
-        if self._storage is None:
-            self._storage = await get_storage()
-        return self._storage
+        if self._storage is not None:
+            return self._storage
+        return await get_storage()
 
     def score_event(self, event: ApiEvent) -> Optional[AnomalyRecord]:
         """Evaluates an ApiEvent across all detectors and computes an explainable composite risk score."""

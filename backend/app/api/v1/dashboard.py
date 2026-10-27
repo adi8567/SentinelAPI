@@ -65,6 +65,7 @@ async def get_top_anomalous_endpoints(
 
 
 @router.get("/endpoint-health", response_model=List[EndpointHealthMetric])
+@router.get("/health-matrix", response_model=List[EndpointHealthMetric])
 async def get_endpoint_health(
     principal: CurrentPrincipal,
 ) -> List[EndpointHealthMetric]:

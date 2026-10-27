@@ -40,9 +40,9 @@ class InventoryService:
         self._active_sessions: Dict[str, SessionRecord] = {}
 
     async def _get_storage(self) -> IStorageRepository:
-        if self._storage is None:
-            self._storage = await get_storage()
-        return self._storage
+        if self._storage is not None:
+            return self._storage
+        return await get_storage()
 
     async def process_event(self, event: ApiEvent) -> EndpointRecord:
         """Processes an incoming ApiEvent, updating endpoint inventory, client profile, and session."""

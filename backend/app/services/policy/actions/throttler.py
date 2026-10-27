@@ -97,3 +97,4 @@ class SlidingWindowThrottler:
 
 # Singleton instance
 adaptive_throttler = SlidingWindowThrottler()
+throttler = adaptive_throttler
