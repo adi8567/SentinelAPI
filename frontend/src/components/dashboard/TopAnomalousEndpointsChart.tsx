@@ -30,14 +30,22 @@ export function TopAnomalousEndpointsChart({ data, onSelectEndpoint }: Props) {
   }
 
   // Format short endpoint labels for the chart
-  const chartData = data.slice(0, 7).map((ep) => ({
-    name: `${ep.http_method} ${ep.endpoint.length > 25 ? ep.endpoint.substring(0, 22) + '...' : ep.endpoint}`,
-    fullEndpoint: ep.endpoint,
-    method: ep.http_method,
-    anomaly_count: ep.anomaly_count,
-    max_risk_score: ep.max_risk_score,
-    primary_detector: ep.primary_detector,
-  }));
+  const chartData = data.slice(0, 7).map((ep) => {
+    const rawEp = ep.endpoint || (ep as any).path_template || (ep as any).endpoint_id || '/';
+    const method = ep.http_method || 'GET';
+    const maxScore = ep.max_risk_score ?? (ep as any).highest_risk_score ?? 0;
+    const anomCount = ep.anomaly_count ?? 0;
+    const detector = ep.primary_detector || (ep as any).risk_level || 'Ensemble';
+
+    return {
+      name: `${method} ${rawEp.length > 25 ? rawEp.substring(0, 22) + '...' : rawEp}`,
+      fullEndpoint: rawEp,
+      method,
+      anomaly_count: anomCount,
+      max_risk_score: maxScore,
+      primary_detector: detector,
+    };
+  });
 
   const getHeatmapColor = (score: number) => {
     if (score >= 80) return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
@@ -106,31 +114,35 @@ export function TopAnomalousEndpointsChart({ data, onSelectEndpoint }: Props) {
 
         {/* Endpoint Heatmap Grid */}
         <div className="space-y-2 font-mono text-xs overflow-y-auto max-h-[240px] pr-1">
-          {data.map((ep, i) => (
-            <div
-              key={i}
-              onClick={() => onSelectEndpoint && onSelectEndpoint(ep.endpoint)}
-              className="p-2.5 rounded-lg bg-slate-800/40 border border-slate-700/50 hover:border-cyan-500/50 transition-all cursor-pointer flex items-center justify-between gap-2"
-            >
-              <div className="flex items-center gap-2 truncate">
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-200">
-                  {ep.http_method}
-                </span>
-                <span className="text-slate-200 truncate font-mono text-[11px] hover:text-cyan-400">
-                  {ep.endpoint}
-                </span>
-              </div>
+          {data.map((ep, i) => {
+            const endpointStr = ep.endpoint || ep.path_template || ep.endpoint_id || '/';
+            const riskScore = ep.max_risk_score ?? ep.highest_risk_score ?? 0;
+            return (
+              <div
+                key={i}
+                onClick={() => onSelectEndpoint && onSelectEndpoint(endpointStr)}
+                className="p-2.5 rounded-lg bg-slate-800/40 border border-slate-700/50 hover:border-cyan-500/50 transition-all cursor-pointer flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-200">
+                    {ep.http_method}
+                  </span>
+                  <span className="text-slate-200 truncate font-mono text-[11px] hover:text-cyan-400">
+                    {endpointStr}
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span className={`px-2 py-0.5 rounded text-[10px] border font-bold ${getHeatmapColor(ep.max_risk_score)}`}>
-                  Risk {ep.max_risk_score.toFixed(0)}
-                </span>
-                <span className="text-[10px] text-slate-400">
-                  {ep.anomaly_count} hits
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`px-2 py-0.5 rounded text-[10px] border font-bold ${getHeatmapColor(riskScore)}`}>
+                    Risk {riskScore.toFixed(0)}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {ep.anomaly_count} hits
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

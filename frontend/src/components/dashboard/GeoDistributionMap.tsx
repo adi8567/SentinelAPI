@@ -62,10 +62,10 @@ export function GeoDistributionMap({ data }: Props) {
                   {geo.country_name}
                 </div>
                 <div className="mt-1 flex items-baseline justify-between text-xs font-mono">
-                  <span className="text-slate-100 font-semibold">{geo.request_count} reqs</span>
-                  {geo.threat_score > 0 && (
+                  <span className="text-slate-100 font-semibold">{(geo.request_count ?? 0).toLocaleString()} reqs</span>
+                  {(geo.threat_score ?? 0) > 0 && (
                     <span className="text-rose-400 text-[10px]">
-                      {geo.threat_score.toFixed(0)} risk
+                      {(geo.threat_score ?? 0).toFixed(0)} risk
                     </span>
                   )}
                 </div>

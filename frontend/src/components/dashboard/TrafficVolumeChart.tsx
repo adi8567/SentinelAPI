@@ -21,12 +21,25 @@ interface Props {
 export function TrafficVolumeChart({ data }: Props) {
   const [filterMode, setFilterMode] = useState<'stacked' | 'total'>('stacked');
 
-  const formattedData = data.map((d) => ({
-    ...d,
-    time: d.bucket_time.includes('T')
-      ? d.bucket_time.split('T')[1].substring(0, 5)
-      : d.bucket_time.substring(11, 16) || d.bucket_time,
-  }));
+  const formattedData = data.map((d) => {
+    const rawTime = (d as any).bucket_time || (d as any).timestamp || new Date().toISOString();
+    const timeStr = typeof rawTime === 'string' ? rawTime : new Date(rawTime).toISOString();
+    const time = timeStr.includes('T')
+      ? timeStr.split('T')[1].substring(0, 5)
+      : timeStr.substring(11, 16) || timeStr;
+
+    return {
+      ...d,
+      time,
+      total_requests: d.total_requests ?? 0,
+      status_2xx: d.status_2xx ?? Math.max(0, (d.total_requests ?? 0) - (d.status_4xx ?? 0) - (d.status_5xx ?? 0)),
+      status_3xx: d.status_3xx ?? 0,
+      status_4xx: d.status_4xx ?? 0,
+      status_5xx: d.status_5xx ?? 0,
+      avg_latency_ms: d.avg_latency_ms ?? 0,
+      p95_latency_ms: d.p95_latency_ms ?? (d.avg_latency_ms ? d.avg_latency_ms * 1.3 : 0),
+    };
+  });
 
   return (
     <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 flex flex-col h-full">
