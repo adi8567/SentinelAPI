@@ -122,10 +122,65 @@ services:
     networks:
       - sentinel-net
 
+  # 7. SentinelAPI Next.js 15 SOC Frontend
+  frontend:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.frontend
+    container_name: sentinel-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    networks:
+      - sentinel-net
+
+  # 8. Prometheus Telemetry Server
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    container_name: sentinel-prometheus
+    depends_on:
+      - backend
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    networks:
+      - sentinel-net
+
+  # 9. Grafana Security Operations Center Visualizer
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: sentinel-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: sentineladmin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../grafana/provisioning:/etc/grafana/provisioning
+      - ../grafana/dashboards:/etc/grafana/dashboards
+    networks:
+      - sentinel-net
+
 volumes:
   clickhouse-data:
   timescale-data:
   redis-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   sentinel-net:

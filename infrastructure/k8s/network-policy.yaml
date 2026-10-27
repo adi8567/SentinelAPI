@@ -1,0 +1,68 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sentinelapi-default-deny
+  namespace: sentinelapi
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sentinelapi-backend-netpol
+  namespace: sentinelapi
+spec:
+  podSelector:
+    matchLabels:
+      app: sentinelapi-backend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow incoming HTTP traffic from frontend and ingress controllers
+    - from:
+        - podSelector:
+            matchLabels:
+              app: sentinelapi-frontend
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+    # Allow Prometheus scraper
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    # Allow egress to Kafka, ClickHouse, and TimescaleDB
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: clickhouse
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: timescaledb
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

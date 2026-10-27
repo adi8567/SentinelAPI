@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinelapi-sa
+  namespace: sentinelapi
+  labels:
+    app: sentinelapi
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sentinelapi-config-reader
+  namespace: sentinelapi
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sentinelapi-config-reader-binding
+  namespace: sentinelapi
+subjects:
+  - kind: ServiceAccount
+    name: sentinelapi-sa
+    namespace: sentinelapi
+roleRef:
+  kind: Role
+  name: sentinelapi-config-reader
+  apiGroup: rbac.authorization.k8s.io

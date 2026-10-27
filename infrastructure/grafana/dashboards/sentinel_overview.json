@@ -1,0 +1,162 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 1,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Ingested API Events Total",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(sentinel_events_ingested_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {},
+          "mappings": []
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Total Anomalies Detected",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(sentinel_anomalies_detected_total)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "red", "mode": "fixed" },
+          "custom": {}
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "title": "Active IP Blocklist Count",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sentinel_active_ip_bans",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "orange", "mode": "fixed" },
+          "custom": {}
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "title": "Active Quarantines",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sentinel_active_quarantines",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "yellow", "mode": "fixed" },
+          "custom": {}
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 5,
+      "title": "HTTP Traffic Rate (req/sec)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (status_code) (rate(sentinel_http_requests_total[1m]))",
+          "legendFormat": "Status {{status_code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 6,
+      "title": "HTTP Request Latency (P50, P95, P99)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(sentinel_http_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "P50 Latency",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(sentinel_http_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "P95 Latency",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(sentinel_http_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "P99 Latency",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 7,
+      "title": "Anomalies by Primary Detector",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (primary_detector) (rate(sentinel_anomalies_detected_total[1m]))",
+          "legendFormat": "{{primary_detector}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 8,
+      "title": "Automated Defense Actions Enforced",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (action) (rate(sentinel_policy_actions_total[1m]))",
+          "legendFormat": "Action: {{action}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["sentinelapi", "security", "telemetry"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
+  "timezone": "browser",
+  "title": "SentinelAPI - Executive Threat & Observability Dashboard",
+  "uid": "sentinelapi-overview"
+}

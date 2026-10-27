@@ -5,6 +5,12 @@ global:
 scrape_configs:
   - job_name: "sentinelapi-backend"
     scrape_interval: 5s
-    metrics_path: "/api/v1/health"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["backend:8000", "localhost:8000"]
+
+  - job_name: "sentinelapi-ingestion"
+    scrape_interval: 5s
+    metrics_path: "/metrics"
     static_configs:
       - targets: ["backend:8000"]

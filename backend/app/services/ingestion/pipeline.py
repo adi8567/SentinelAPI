@@ -10,6 +10,12 @@ import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from backend.app.core.config import settings
+from backend.app.core.metrics import (
+    ANOMALIES_DETECTED_TOTAL,
+    ANOMALY_RISK_SCORE,
+    EVENTS_INGESTED_TOTAL,
+    INGESTION_PARSE_ERRORS_TOTAL,
+)
 from backend.app.schemas.events import (
     ApiEvent,
     IngestionResult,
@@ -107,6 +113,11 @@ class IngestionPipeline:
         # 4. Store normalized events in analytical storage
         stored_count = await storage.store_events(events)
 
+        # Record metrics
+        EVENTS_INGESTED_TOTAL.labels(source_type=detected_source).inc(len(events))
+        if errors:
+            INGESTION_PARSE_ERRORS_TOTAL.labels(source_type=detected_source).inc(len(errors))
+
         # 5. Continuous Online Inventory Discovery, Baseline Tracking, Anomaly Scoring & Adaptive Protection
         await inventory_service.process_batch(events)
         for ev in events:
@@ -126,6 +137,12 @@ class IngestionPipeline:
                 "client_ip": ev.client_ip,
             }))
             if anomaly:
+                ANOMALIES_DETECTED_TOTAL.labels(
+                    severity=anomaly.severity.value,
+                    primary_detector=anomaly.primary_detector,
+                ).inc()
+                ANOMALY_RISK_SCORE.observe(anomaly.risk_score)
+
                 asyncio.create_task(ws_manager.broadcast("alerts", {
                     "type": "anomaly_alert",
                     "anomaly_id": anomaly.anomaly_id,
@@ -204,6 +221,12 @@ class IngestionPipeline:
                 "client_ip": ev.client_ip,
             }))
             if anomaly:
+                ANOMALIES_DETECTED_TOTAL.labels(
+                    severity=anomaly.severity.value,
+                    primary_detector=anomaly.primary_detector,
+                ).inc()
+                ANOMALY_RISK_SCORE.observe(anomaly.risk_score)
+
                 asyncio.create_task(ws_manager.broadcast("alerts", {
                     "type": "anomaly_alert",
                     "anomaly_id": anomaly.anomaly_id,

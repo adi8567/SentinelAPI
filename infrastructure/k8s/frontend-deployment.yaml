@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinelapi-frontend
+  namespace: sentinelapi
+  labels:
+    app: sentinelapi-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sentinelapi-frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: sentinelapi-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: sentinelapi/frontend:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://sentinelapi-backend-service.sentinelapi.svc.cluster.local:80"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinelapi-frontend-service
+  namespace: sentinelapi
+  labels:
+    app: sentinelapi-frontend
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 3000
+      name: http
+  selector:
+    app: sentinelapi-frontend
