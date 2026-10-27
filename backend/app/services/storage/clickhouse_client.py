@@ -233,6 +233,36 @@ class ClickHouseStorageRepository(IStorageRepository):
     ) -> List[Dict[str, Any]]:
         return []
 
+    async def store_policy(self, policy: Any) -> bool:
+        return True
+
+    async def get_policies(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
+        return []
+
+    async def delete_policy(self, policy_id: str) -> bool:
+        return True
+
+    async def store_policy_decision(self, decision: Any) -> bool:
+        return True
+
+    async def get_policy_decisions(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        action: Optional[str] = None,
+        client_ip: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        return []
+
+    async def store_blocklist_entry(self, entry: Any) -> bool:
+        return True
+
+    async def get_active_blocklist(self) -> List[Dict[str, Any]]:
+        return []
+
+    async def remove_blocklist_entry(self, ip: str) -> bool:
+        return True
+
     async def apply_retention_policy(
         self,
         raw_retention_days: int = 30,

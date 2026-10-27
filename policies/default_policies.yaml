@@ -1,0 +1,109 @@
+# SentinelAPI Adaptive Protection Policies
+# Declarative Policy-as-Code Configuration
+# Version: 1.0.0
+
+version: "1.0"
+policies:
+  # 1. Immediate Allow for Health & Telemetry Probes
+  - policy_id: "pol_allow_internal_health"
+    name: "Allow Internal Health and Monitoring"
+    description: "Permit internal service monitoring, liveness, and readiness probes without restriction."
+    is_enabled: true
+    priority: 5
+    conditions:
+      endpoint_pattern: "^/(health|metrics|readiness|livez|readyz)$"
+    action: "allow"
+    action_params:
+      bypass_inspection: true
+
+  # 2. Block Critical Injection & Traversal Exploits
+  - policy_id: "pol_block_critical_attacks"
+    name: "Block Critical Exploits & Automated Attack Tools"
+    description: "Immediately drop requests containing SQL injection, directory traversal, or scanner tools, and place the offending IP on a temporary ban."
+    is_enabled: true
+    priority: 10
+    conditions:
+      min_risk_score: 75.0
+      severities:
+        - "critical"
+      attack_types:
+        - "sqli"
+        - "path_traversal"
+        - "xss_injection"
+        - "vulnerability_scanner"
+    action: "block"
+    action_params:
+      ban_duration_seconds: 3600
+      notify_webhook: true
+      siem_alert: true
+
+  # 3. Throttle Credential Stuffing & Authentication Brute Force
+  - policy_id: "pol_throttle_brute_force"
+    name: "Throttle Authentication Brute Force"
+    description: "Rate limit rapid failed authentication requests on login and token endpoints to mitigate credential stuffing."
+    is_enabled: true
+    priority: 20
+    conditions:
+      endpoint_pattern: "^/api/v1/auth/(login|token|refresh)$"
+      attack_types:
+        - "brute_force"
+        - "credential_stuffing"
+    action: "throttle"
+    action_params:
+      rate_limit_rpm: 3
+      retry_after_seconds: 60
+      notify_webhook: true
+
+  # 4. Challenge BOLA / IDOR Object Enumeration
+  - policy_id: "pol_challenge_bola_idor"
+    name: "Challenge BOLA / IDOR Enumeration"
+    description: "Issue step-up authentication or verification challenge when unauthorized resource enumeration is detected."
+    is_enabled: true
+    priority: 30
+    conditions:
+      min_risk_score: 60.0
+      attack_types:
+        - "bola_idor"
+    action: "challenge"
+    action_params:
+      challenge_type: "reauth_required"
+      step_up_required: true
+
+  # 5. Quarantine Degraded Reputation Clients
+  - policy_id: "pol_quarantine_degraded_reputation"
+    name: "Quarantine Untrusted Clients"
+    description: "Isolate clients whose reputation score has dropped below 30 into quarantine for SOC analyst review."
+    is_enabled: true
+    priority: 40
+    conditions:
+      min_risk_score: 50.0
+      max_client_reputation: 30.0
+    action: "quarantine"
+    action_params:
+      quarantine_duration_seconds: 7200
+      alert_soc: true
+
+  # 6. Throttle High Risk Anomalies
+  - policy_id: "pol_throttle_high_risk"
+    name: "Throttle High Risk Traffic"
+    description: "Apply defensive rate limiting to unclassified traffic exhibiting high statistical or sequence risk."
+    is_enabled: true
+    priority: 50
+    conditions:
+      min_risk_score: 60.0
+      severities:
+        - "high"
+    action: "throttle"
+    action_params:
+      rate_limit_rpm: 10
+      retry_after_seconds: 30
+
+  # 7. Default Allow
+  - policy_id: "pol_default_allow"
+    name: "Default Allow Policy"
+    description: "Allow all verified, baseline-compliant traffic that does not violate any higher priority security policy."
+    is_enabled: true
+    priority: 100
+    conditions: {}
+    action: "allow"
+    action_params: {}

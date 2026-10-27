@@ -20,6 +20,7 @@ from backend.app.services.baseline.online_updater import online_baseline_updater
 from backend.app.services.detection.engine import anomaly_engine
 from backend.app.services.ingestion.auto_detector import parser_registry
 from backend.app.services.inventory.inventory_service import inventory_service
+from backend.app.services.policy.engine import policy_engine
 from backend.app.services.storage.factory import get_storage
 from backend.app.services.storage.repository import IStorageRepository
 from backend.app.services.streaming.kafka_client import stream_producer
@@ -105,11 +106,12 @@ class IngestionPipeline:
         # 4. Store normalized events in analytical storage
         stored_count = await storage.store_events(events)
 
-        # 5. Continuous Online Inventory Discovery & Baseline Tracking
+        # 5. Continuous Online Inventory Discovery, Baseline Tracking, Anomaly Scoring & Adaptive Protection
         await inventory_service.process_batch(events)
         for ev in events:
             online_baseline_updater.observe_event(ev)
-            await anomaly_engine.process_and_persist(ev)
+            anomaly = await anomaly_engine.process_and_persist(ev)
+            await policy_engine.evaluate_and_enforce(ev, anomaly)
 
         # 6. Update metrics
         raw_bytes = sum(len(line.encode("utf-8")) for line in raw_lines)
@@ -157,11 +159,12 @@ class IngestionPipeline:
         # 2. Store in database
         stored_count = await storage.store_events(events)
 
-        # 3. Continuous Online Inventory Discovery & Baseline Tracking
+        # 3. Continuous Online Inventory Discovery, Baseline Tracking, Anomaly Scoring & Adaptive Protection
         await inventory_service.process_batch(events)
         for ev in events:
             online_baseline_updater.observe_event(ev)
-            await anomaly_engine.process_and_persist(ev)
+            anomaly = await anomaly_engine.process_and_persist(ev)
+            await policy_engine.evaluate_and_enforce(ev, anomaly)
 
         # 4. Update metrics
         async with self._lock:

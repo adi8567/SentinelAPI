@@ -96,6 +96,52 @@ class IStorageRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def store_policy(self, policy: Any) -> bool:
+        """Stores or updates a declarative policy rule."""
+        pass
+
+    @abc.abstractmethod
+    async def get_policies(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
+        """Retrieves stored policy rules."""
+        pass
+
+    @abc.abstractmethod
+    async def delete_policy(self, policy_id: str) -> bool:
+        """Deletes a policy rule by ID."""
+        pass
+
+    @abc.abstractmethod
+    async def store_policy_decision(self, decision: Any) -> bool:
+        """Stores a policy evaluation decision audit record."""
+        pass
+
+    @abc.abstractmethod
+    async def get_policy_decisions(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        action: Optional[str] = None,
+        client_ip: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Queries stored policy decisions."""
+        pass
+
+    @abc.abstractmethod
+    async def store_blocklist_entry(self, entry: Any) -> bool:
+        """Stores or updates an IP blocklist ban record."""
+        pass
+
+    @abc.abstractmethod
+    async def get_active_blocklist(self) -> List[Dict[str, Any]]:
+        """Retrieves active IP blocklist records."""
+        pass
+
+    @abc.abstractmethod
+    async def remove_blocklist_entry(self, ip: str) -> bool:
+        """Removes an IP from the blocklist."""
+        pass
+
+    @abc.abstractmethod
     async def apply_retention_policy(
         self,
         raw_retention_days: int = 30,

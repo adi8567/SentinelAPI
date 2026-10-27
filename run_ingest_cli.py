@@ -26,6 +26,11 @@ from backend.app.services.baseline.batch_learner import batch_baseline_learner
 from backend.app.services.detection.engine import anomaly_engine
 from backend.app.services.ingestion.pipeline import ingestion_pipeline
 from backend.app.services.inventory.inventory_service import inventory_service
+from backend.app.services.policy.actions.ban_manager import ip_ban_manager
+from backend.app.services.policy.actions.quarantine_manager import quarantine_manager
+from backend.app.services.policy.actions.siem_forwarder import siem_forwarder
+from backend.app.services.policy.actions.webhook_dispatcher import webhook_dispatcher
+from backend.app.services.policy.engine import policy_engine
 from backend.app.services.storage.factory import get_storage
 from backend.app.services.streaming.kafka_client import stream_producer
 
@@ -245,9 +250,94 @@ async def run_cli():
     )
     console.print(stats_panel)
 
+    # 6. Adaptive Response & Closed-Loop Policy Enforcement
+    policy_rules = await policy_engine.get_rules()
+    pol_table = Table(title=f"Active Security Policies ({len(policy_rules)} Declarative Rules)")
+    pol_table.add_column("Priority", style="yellow")
+    pol_table.add_column("Policy ID", style="cyan")
+    pol_table.add_column("Name", style="bold")
+    pol_table.add_column("Action", style="magenta")
+    pol_table.add_column("Conditions Summary", style="white")
+
+    action_colors = {
+        "block": "bold red on white",
+        "throttle": "bold yellow",
+        "challenge": "bold cyan",
+        "quarantine": "bold magenta",
+        "allow": "green",
+    }
+
+    for r in policy_rules:
+        a_color = action_colors.get(r.action.value, "white")
+        conds = []
+        if r.conditions.endpoint_pattern:
+            conds.append(f"Path: {r.conditions.endpoint_pattern}")
+        if r.conditions.attack_types:
+            conds.append(f"Attacks: {','.join(r.conditions.attack_types)}")
+        if r.conditions.min_risk_score is not None:
+            conds.append(f"MinScore: {r.conditions.min_risk_score}")
+        if r.conditions.severities:
+            conds.append(f"Sevs: {','.join(s.value for s in r.conditions.severities)}")
+        if r.conditions.max_client_reputation is not None:
+            conds.append(f"MaxRep: {r.conditions.max_client_reputation}")
+        cond_str = " | ".join(conds) if conds else "Match All"
+
+        pol_table.add_row(
+            str(r.priority),
+            r.policy_id,
+            r.name,
+            f"[{a_color}]{r.action.value.upper()}[/{a_color}]",
+            cond_str,
+        )
+
+    console.print(pol_table)
+
+    # Decisions Audit Table
+    decisions = await policy_engine.get_decisions(limit=15)
+    dec_table = Table(title=f"Automated Policy Enforcement Decisions ({len(decisions)} Recent Actions)")
+    dec_table.add_column("Action", style="bold")
+    dec_table.add_column("Client IP", style="cyan")
+    dec_table.add_column("Endpoint", style="blue")
+    dec_table.add_column("Matched Policy", style="yellow")
+    dec_table.add_column("Reason / Action Details", style="white")
+
+    for d in decisions:
+        a_color = action_colors.get(d.action_taken.value, "white")
+        details = ", ".join(f"{k}={v}" for k, v in d.action_details.items() if k not in ["action"])
+        dec_table.add_row(
+            f"[{a_color}]{d.action_taken.value.upper()}[/{a_color}]",
+            d.client_ip,
+            d.endpoint,
+            d.matched_policy_name or d.matched_policy_id or "default",
+            f"{d.reason} [{details}]" if details else d.reason,
+        )
+
+    console.print(dec_table)
+
+    # Policy Stats & Action Summary
+    pol_stats = await policy_engine.get_stats()
+    bans = await ip_ban_manager.list_active_bans()
+    quarantined = await quarantine_manager.list_active()
+    siem_stats = siem_forwarder.get_stats()
+
+    pol_summary = Panel.fit(
+        f"[bold]Total Decisions Evaluated:[/bold] {pol_stats.total_decisions_evaluated} | "
+        f"[bold red]Blocks:[/bold red] {pol_stats.actions_breakdown.get('block', 0)} | "
+        f"[bold yellow]Throttles:[/bold yellow] {pol_stats.actions_breakdown.get('throttle', 0)} | "
+        f"[bold cyan]Challenges:[/bold cyan] {pol_stats.actions_breakdown.get('challenge', 0)} | "
+        f"[bold magenta]Quarantines:[/bold magenta] {pol_stats.actions_breakdown.get('quarantine', 0)} | "
+        f"[green]Allows:[/green] {pol_stats.actions_breakdown.get('allow', 0)}\n"
+        f"[bold red]Active IP Bans:[/bold red] {len(bans)} ({', '.join(b.ip for b in bans) if bans else 'None'})\n"
+        f"[bold magenta]Active Quarantines:[/bold magenta] {len(quarantined)} ({', '.join(q.client_ip for q in quarantined) if quarantined else 'None'})\n"
+        f"[cyan]SIEM CEF Records Emitted:[/cyan] {siem_stats['total_siem_events_forwarded']} | "
+        f"[blue]Webhooks Dispatched:[/blue] {pol_stats.total_webhooks_dispatched}",
+        title="Adaptive Protection & Action Summary"
+    )
+    console.print(pol_summary)
+
     await stream_producer.stop()
     await storage.close()
-    console.print("\n[bold green]SentinelAPI Phase 3 verification completed successfully![/bold green]")
+    console.print("\n[bold green]SentinelAPI Phase 4 verification completed successfully![/bold green]")
 
 
 if __name__ == "__main__":

@@ -44,3 +44,5 @@ class StorageFactory:
 # Convenience accessor
 async def get_storage() -> IStorageRepository:
     return await StorageFactory.get_repository()
+
+get_storage_repository = get_storage

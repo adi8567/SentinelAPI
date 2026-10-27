@@ -183,6 +183,70 @@ class DuckDBStorageRepository(IStorageRepository):
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_anom_ts ON anomalies (timestamp);")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_anom_risk ON anomalies (risk_score);")
+
+            # 8. Declarative Policies
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS policies (
+                    policy_id VARCHAR PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    description VARCHAR,
+                    is_enabled BOOLEAN DEFAULT TRUE,
+                    priority INTEGER DEFAULT 100,
+                    conditions VARCHAR,
+                    action VARCHAR NOT NULL,
+                    action_params VARCHAR,
+                    created_at TIMESTAMP WITH TIME ZONE,
+                    updated_at TIMESTAMP WITH TIME ZONE
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pol_pri ON policies (priority);")
+
+            # 9. Policy Enforcement Decision Audit Trail
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS policy_decisions (
+                    decision_id VARCHAR PRIMARY KEY,
+                    event_id VARCHAR NOT NULL,
+                    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+                    client_ip VARCHAR NOT NULL,
+                    endpoint VARCHAR NOT NULL,
+                    http_method VARCHAR NOT NULL,
+                    risk_score DOUBLE NOT NULL,
+                    severity VARCHAR NOT NULL,
+                    action_taken VARCHAR NOT NULL,
+                    matched_policy_id VARCHAR,
+                    matched_policy_name VARCHAR,
+                    reason VARCHAR NOT NULL,
+                    action_details VARCHAR,
+                    is_active BOOLEAN DEFAULT TRUE
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_dec_ts ON policy_decisions (timestamp);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_dec_act ON policy_decisions (action_taken);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_dec_ip ON policy_decisions (client_ip);")
+
+            # 10. IP Blocklist Store
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ip_blocklist (
+                    ip VARCHAR PRIMARY KEY,
+                    reason VARCHAR NOT NULL,
+                    banned_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    expires_at TIMESTAMP WITH TIME ZONE,
+                    policy_id VARCHAR,
+                    is_active BOOLEAN DEFAULT TRUE
+                );
+            """)
+
+            # 11. Quarantine Records
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS quarantine_records (
+                    client_ip VARCHAR PRIMARY KEY,
+                    client_id VARCHAR,
+                    quarantined_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    reason VARCHAR NOT NULL,
+                    policy_id VARCHAR,
+                    is_active BOOLEAN DEFAULT TRUE
+                );
+            """)
             return conn
 
         loop = asyncio.get_event_loop()
@@ -621,6 +685,222 @@ class DuckDBStorageRepository(IStorageRepository):
         async with self._lock:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, _query, self._conn)
+
+    async def store_policy(self, policy: Any) -> bool:
+        if not self._conn:
+            await self.initialize()
+
+        data = policy.model_dump() if hasattr(policy, "model_dump") else dict(policy)
+        def _insert(conn):
+            conn.execute("""
+                INSERT OR REPLACE INTO policies (
+                    policy_id, name, description, is_enabled, priority,
+                    conditions, action, action_params, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                data.get("policy_id"),
+                data.get("name"),
+                data.get("description"),
+                data.get("is_enabled", True),
+                data.get("priority", 100),
+                json.dumps(data.get("conditions", {})),
+                data.get("action").value if hasattr(data.get("action"), "value") else str(data.get("action")),
+                json.dumps(data.get("action_params", {})),
+                data.get("created_at") or datetime.now(timezone.utc),
+                data.get("updated_at") or datetime.now(timezone.utc),
+            ])
+            return True
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _insert, self._conn)
+
+    async def get_policies(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
+        if not self._conn:
+            await self.initialize()
+
+        sql = "SELECT * FROM policies"
+        if enabled_only:
+            sql += " WHERE is_enabled = true"
+        sql += " ORDER BY priority ASC"
+
+        def _query(conn):
+            cursor = conn.execute(sql)
+            columns = [desc[0] for desc in cursor.description]
+            results = []
+            for r in cursor.fetchall():
+                row = dict(zip(columns, r))
+                if isinstance(row.get("conditions"), str):
+                    try:
+                        row["conditions"] = json.loads(row["conditions"])
+                    except Exception:
+                        pass
+                if isinstance(row.get("action_params"), str):
+                    try:
+                        row["action_params"] = json.loads(row["action_params"])
+                    except Exception:
+                        pass
+                results.append(row)
+            return results
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _query, self._conn)
+
+    async def delete_policy(self, policy_id: str) -> bool:
+        if not self._conn:
+            await self.initialize()
+
+        def _del(conn):
+            conn.execute("DELETE FROM policies WHERE policy_id = ?", [policy_id])
+            return True
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _del, self._conn)
+
+    async def store_policy_decision(self, decision: Any) -> bool:
+        if not self._conn:
+            await self.initialize()
+
+        data = decision.model_dump() if hasattr(decision, "model_dump") else dict(decision)
+        act_val = data.get("action_taken")
+        if hasattr(act_val, "value"):
+            act_val = act_val.value
+        sev_val = data.get("severity")
+        if hasattr(sev_val, "value"):
+            sev_val = sev_val.value
+
+        def _insert(conn):
+            conn.execute("""
+                INSERT OR REPLACE INTO policy_decisions (
+                    decision_id, event_id, timestamp, client_ip, endpoint,
+                    http_method, risk_score, severity, action_taken,
+                    matched_policy_id, matched_policy_name, reason,
+                    action_details, is_active
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                data.get("decision_id"),
+                data.get("event_id"),
+                data.get("timestamp"),
+                data.get("client_ip"),
+                data.get("endpoint"),
+                data.get("http_method"),
+                float(data.get("risk_score", 0.0)),
+                str(sev_val),
+                str(act_val),
+                data.get("matched_policy_id"),
+                data.get("matched_policy_name"),
+                data.get("reason"),
+                json.dumps(data.get("action_details", {})),
+                data.get("is_active", True),
+            ])
+            return True
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _insert, self._conn)
+
+    async def get_policy_decisions(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        action: Optional[str] = None,
+        client_ip: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if not self._conn:
+            await self.initialize()
+
+        conditions = ["1=1"]
+        params: List[Any] = []
+        if action:
+            conditions.append("action_taken = ?")
+            params.append(action.lower())
+        if client_ip:
+            conditions.append("client_ip = ?")
+            params.append(client_ip)
+
+        where_clause = " AND ".join(conditions)
+        sql = f"""
+            SELECT * FROM policy_decisions
+            WHERE {where_clause}
+            ORDER BY timestamp DESC
+            LIMIT ? OFFSET ?
+        """
+        params.extend([limit, offset])
+
+        def _query(conn):
+            cursor = conn.execute(sql, params)
+            columns = [desc[0] for desc in cursor.description]
+            results = []
+            for r in cursor.fetchall():
+                row = dict(zip(columns, r))
+                if isinstance(row.get("action_details"), str):
+                    try:
+                        row["action_details"] = json.loads(row["action_details"])
+                    except Exception:
+                        pass
+                results.append(row)
+            return results
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _query, self._conn)
+
+    async def store_blocklist_entry(self, entry: Any) -> bool:
+        if not self._conn:
+            await self.initialize()
+
+        data = entry.model_dump() if hasattr(entry, "model_dump") else dict(entry)
+        def _insert(conn):
+            conn.execute("""
+                INSERT OR REPLACE INTO ip_blocklist (
+                    ip, reason, banned_at, expires_at, policy_id, is_active
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, [
+                data.get("ip"),
+                data.get("reason"),
+                data.get("banned_at"),
+                data.get("expires_at"),
+                data.get("policy_id"),
+                data.get("is_active", True),
+            ])
+            return True
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _insert, self._conn)
+
+    async def get_active_blocklist(self) -> List[Dict[str, Any]]:
+        if not self._conn:
+            await self.initialize()
+
+        sql = """
+            SELECT * FROM ip_blocklist
+            WHERE is_active = true AND (expires_at IS NULL OR expires_at > now())
+            ORDER BY banned_at DESC
+        """
+
+        def _query(conn):
+            cursor = conn.execute(sql)
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, r)) for r in cursor.fetchall()]
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _query, self._conn)
+
+    async def remove_blocklist_entry(self, ip: str) -> bool:
+        if not self._conn:
+            await self.initialize()
+
+        def _del(conn):
+            conn.execute("UPDATE ip_blocklist SET is_active = false WHERE ip = ?", [ip])
+            return True
+
+        async with self._lock:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, _del, self._conn)
 
     async def apply_retention_policy(
         self,

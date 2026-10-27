@@ -28,6 +28,10 @@ async def lifespan(app: FastAPI):
     # 2. Start streaming broker / buffer
     await stream_producer.start()
 
+    # 3. Initialize adaptive policy engine
+    from backend.app.services.policy.engine import policy_engine
+    await policy_engine.initialize()
+
     logger.info("SentinelAPI core services initialized successfully.")
     yield
 
