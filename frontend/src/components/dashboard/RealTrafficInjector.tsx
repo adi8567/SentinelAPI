@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { api } from '@/lib/api';
 import { Play, Check, Database } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Props {
   onTrafficIngested: () => void;
@@ -17,7 +18,7 @@ export function RealTrafficInjector({ onTrafficIngested }: Props) {
       id: 'nginx',
       name: 'NGINX Production Logs',
       sourceType: 'nginx',
-      description: 'Standard combined format access logs across catalog, checkout & search',
+      description: 'Standard combined access logs across product catalog, search, and checkout endpoints',
       logs: [
         '192.168.1.10 - - [27/Oct/2026:09:40:01 +0000] "GET /api/v1/products HTTP/1.1" 200 4500 "-" "Mozilla/5.0"',
         '192.168.1.11 - - [27/Oct/2026:09:40:02 +0000] "POST /api/v1/cart/items HTTP/1.1" 201 320 "-" "curl/7.68.0"',
@@ -25,13 +26,13 @@ export function RealTrafficInjector({ onTrafficIngested }: Props) {
         '192.168.1.13 - - [27/Oct/2026:09:40:04 +0000] "GET /api/v1/search?q=security HTTP/1.1" 200 8900 "-" "Mozilla/5.0"',
         '192.168.1.14 - - [27/Oct/2026:09:40:05 +0000] "GET /healthz HTTP/1.1" 200 45 "-" "Kube-Probe/1.28"',
       ],
-      badgeColor: 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10',
+      badgeColor: 'border-violet-500/30 text-violet-300 bg-violet-500/10',
     },
     {
       id: 'envoy',
       name: 'Envoy Gateway Telemetry',
       sourceType: 'envoy',
-      description: 'Structured JSON telemetry with latency, upstream cluster and TLS version',
+      description: 'Structured JSON telemetry with upstream routing clusters, latencies, and TLS metadata',
       logs: [
         JSON.stringify({
           start_time: '2026-10-27T09:40:10Z',
@@ -58,20 +59,20 @@ export function RealTrafficInjector({ onTrafficIngested }: Props) {
           cluster: 'order_service_cluster',
         }),
       ],
-      badgeColor: 'border-purple-500/40 text-purple-300 bg-purple-500/10',
+      badgeColor: 'border-indigo-500/30 text-indigo-300 bg-indigo-500/10',
     },
     {
       id: 'attacks',
-      name: 'Live Security Attack Set',
+      name: 'Real Multi-Vector Attacks',
       sourceType: 'auto',
-      description: 'Real malicious traffic: SQL Injection, Path Traversal, BOLA/IDOR & Scanners',
+      description: 'Authentic scanner & exploit payloads: SQLi, Path Traversal, BOLA/IDOR & Credential Brute-Force',
       logs: [
         '203.0.113.200 - - [27/Oct/2026:09:41:00 +0000] "GET /api/v1/users?id=1%27%20OR%201=1-- HTTP/1.1" 403 80 "-" "sqlmap/1.6#stable"',
         '203.0.113.201 - - [27/Oct/2026:09:41:01 +0000] "GET /api/v1/download?file=../../../../etc/passwd HTTP/1.1" 403 75 "-" "Nikto/2.1.6"',
         '203.0.113.202 - - [27/Oct/2026:09:41:02 +0000] "GET /api/v1/orders/999999 HTTP/1.1" 403 88 "-" "python-requests/2.28.1"',
         '203.0.113.203 - - [27/Oct/2026:09:41:03 +0000] "POST /api/v1/auth/login HTTP/1.1" 401 120 "-" "Hydra/9.5"',
       ],
-      badgeColor: 'border-rose-500/40 text-rose-300 bg-rose-500/10',
+      badgeColor: 'border-rose-500/30 text-rose-300 bg-rose-500/10',
     },
   ];
 
@@ -91,61 +92,71 @@ export function RealTrafficInjector({ onTrafficIngested }: Props) {
   };
 
   return (
-    <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 space-y-4 font-mono text-xs">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.3 }}
+      className="glass-card p-5 space-y-5 font-mono text-xs"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Database className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20 shadow-sm shadow-violet-500/10">
+            <Database className="w-4 h-4" aria-hidden="true" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-100 uppercase tracking-wider">
+            <h4 className="text-sm font-semibold text-white tracking-wide">
               Real Data Stream Injection Console
             </h4>
-            <p className="text-slate-400">
-              Inject actual production API access logs & security attack traces directly into the ingestion engine
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Inject authentic production traffic & attack logs directly into the live ingestion pipeline
             </p>
           </div>
         </div>
 
         {statusMessage && (
-          <div className="px-3 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-xs flex items-center gap-1.5 animate-in fade-in">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs flex items-center gap-1.5"
+          >
             <Check className="w-3.5 h-3.5" />
             {statusMessage}
-          </div>
+          </motion.div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
         {realDatasets.map((ds) => (
           <div
             key={ds.id}
-            className="p-4 bg-slate-950/60 rounded-xl border border-slate-800/80 hover:border-slate-700 transition-all flex flex-col justify-between space-y-3"
+            className="p-4 glass-card-sm border border-slate-700/40 hover:border-violet-500/40 transition-all duration-200 flex flex-col justify-between space-y-4 group"
           >
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-slate-100">{ds.name}</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] border font-bold ${ds.badgeColor}`}>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-[13px]">{ds.name}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[9px] border font-bold uppercase tracking-wider ${ds.badgeColor}`}>
                   {ds.sourceType}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">{ds.description}</p>
+              <p className="text-[11px] text-slate-400 leading-relaxed font-sans">{ds.description}</p>
             </div>
 
             <button
+              type="button"
               onClick={() => handleInject(ds)}
               disabled={loadingDataset !== null}
-              className={`w-full py-2 px-3 rounded-lg border font-semibold flex items-center justify-center gap-2 transition-all ${
+              className={`w-full py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all focus-visible:ring-2 focus-visible:ring-violet-500 ${
                 ds.id === 'attacks'
-                  ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border-rose-500/40'
-                  : 'bg-slate-800 hover:bg-cyan-500/20 hover:text-cyan-300 text-slate-200 border-slate-700'
+                  ? 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/30 shadow-sm shadow-rose-500/10'
+                  : 'bg-violet-600/15 hover:bg-violet-600/25 text-violet-200 border-violet-500/30 hover:border-violet-500/50'
               } disabled:opacity-50`}
             >
               <Play className={`w-3.5 h-3.5 ${loadingDataset === ds.id ? 'animate-spin' : ''}`} />
-              {loadingDataset === ds.id ? 'Ingesting Real Logs...' : `Inject ${ds.logs.length} Real Events`}
+              {loadingDataset === ds.id ? 'Ingesting Stream...' : `Inject ${ds.logs.length} Events`}
             </button>
           </div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }

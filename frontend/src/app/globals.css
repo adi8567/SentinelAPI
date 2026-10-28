@@ -2,64 +2,237 @@
 
 @layer base {
   :root {
-    --background: #090d16;
-    --foreground: #f1f5f9;
-    --card: #0f172a;
-    --card-foreground: #f8fafc;
-    --border: #1e293b;
-    --primary: #06b6d4;
-    --primary-foreground: #042f2e;
-    --secondary: #3b82f6;
-    --accent: #8b5cf6;
-    --danger: #f43f5e;
-    --warning: #f59e0b;
-    --success: #10b981;
+    --background: #0F172A;
+    --foreground: #F8FAFC;
+    --card: #1E293B;
+    --card-foreground: #F1F5F9;
+    --border: #334155;
+    --primary: #7C3AED;
+    --primary-foreground: #F5F3FF;
+    --secondary: #6366F1;
+    --accent: #A78BFA;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --success: #10B981;
+    --muted: #475569;
+    --ring: #7C3AED;
   }
 }
 
+/* ──────── Base ──────── */
 body {
-  background-color: #080c14;
-  color: #f1f5f9;
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
 }
 
-/* Custom cyber glow and grid styles */
-.cyber-grid {
-  background-image: 
-    linear-gradient(to right, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(14, 165, 233, 0.05) 1px, transparent 1px);
-  background-size: 32px 32px;
+/* ──────── Ambient Grid ──────── */
+.ambient-grid {
+  background-image: radial-gradient(
+      circle at 50% 0%,
+      rgba(124, 58, 237, 0.08) 0%,
+      transparent 60%
+    ),
+    linear-gradient(
+      to right,
+      rgba(124, 58, 237, 0.03) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(124, 58, 237, 0.03) 1px,
+      transparent 1px
+    );
+  background-size: 100% 100%, 40px 40px, 40px 40px;
 }
 
-.glow-border-cyan {
-  box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.25);
+/* ──────── Glassmorphism Cards ──────── */
+.glass-card {
+  background: rgba(30, 41, 59, 0.5);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 16px;
 }
 
-.glow-border-rose {
-  box-shadow: 0 0 15px -3px rgba(244, 63, 94, 0.3);
+.glass-card-sm {
+  background: rgba(30, 41, 59, 0.35);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 12px;
 }
 
-.glow-border-amber {
-  box-shadow: 0 0 15px -3px rgba(245, 158, 11, 0.25);
+/* ──────── Glow Effects ──────── */
+.glow-violet {
+  box-shadow: 0 0 20px -5px rgba(124, 58, 237, 0.35),
+    0 0 60px -10px rgba(124, 58, 237, 0.15);
 }
 
-.glow-border-emerald {
-  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.25);
+.glow-violet-soft {
+  box-shadow: 0 0 15px -3px rgba(124, 58, 237, 0.2);
 }
 
-/* Sleek custom scrollbars */
+.glow-rose {
+  box-shadow: 0 0 20px -5px rgba(239, 68, 68, 0.3);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.25);
+}
+
+.glow-amber {
+  box-shadow: 0 0 20px -5px rgba(245, 158, 11, 0.25);
+}
+
+/* ──────── Gradient Text ──────── */
+.gradient-text-brand {
+  background: linear-gradient(135deg, #A78BFA, #7C3AED, #6366F1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-status {
+  background: linear-gradient(90deg, #10B981, #34D399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ──────── Pill Buttons ──────── */
+.pill-active {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  color: #C4B5FD;
+}
+
+.pill-inactive {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94A3B8;
+}
+
+.pill-inactive:hover {
+  background: rgba(51, 65, 85, 0.4);
+  color: #E2E8F0;
+}
+
+/* ──────── Bento Grid Responsive ──────── */
+.bento-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .bento-grid {
+    gap: 1.25rem;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .bento-grid {
+    gap: 1.5rem;
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ──────── Stat Cards Hover Glow ──────── */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.25s ease;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 80% 20%,
+    var(--card-accent-color, rgba(124, 58, 237, 0.1)),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px -8px var(--card-accent-color, rgba(124, 58, 237, 0.2));
+}
+
+.stat-card:hover::before {
+  opacity: 1;
+}
+
+/* ──────── Scrollbars ──────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #0b0f19;
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #334155;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ──────── Keyframes ──────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.3) 25%,
+    rgba(51, 65, 85, 0.4) 50%,
+    rgba(30, 41, 59, 0.3) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ──────── Focus Visible (Accessibility) ──────── */
+:focus-visible {
+  outline: 2px solid #7C3AED;
+  outline-offset: 2px;
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+
+/* ──────── Selection ──────── */
+::selection {
+  background: rgba(124, 58, 237, 0.3);
+  color: #F8FAFC;
 }

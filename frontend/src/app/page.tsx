@@ -31,6 +31,7 @@ import { ModelPerformanceMetrics } from '@/components/dashboard/ModelPerformance
 import { ForensicTraceModal } from '@/components/dashboard/ForensicTraceModal';
 import { RealTrafficInjector } from '@/components/dashboard/RealTrafficInjector';
 
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   Shield,
   ShieldAlert,
@@ -38,12 +39,28 @@ import {
   HeartPulse,
   Cpu,
   RefreshCw,
+  Menu,
+  X,
 } from 'lucide-react';
+
+type TabKey = 'overview' | 'health' | 'threats' | 'engine';
+
+const tabs: { key: TabKey; label: string; icon: React.ComponentType<any>; mobileLabel: string }[] = [
+  { key: 'overview', label: 'Overview & Telemetry', icon: Activity, mobileLabel: 'Overview' },
+  { key: 'health', label: 'Endpoint Health', icon: HeartPulse, mobileLabel: 'Health' },
+  { key: 'threats', label: 'Threats & Attacks', icon: ShieldAlert, mobileLabel: 'Threats' },
+  { key: 'engine', label: 'ML Engine', icon: Cpu, mobileLabel: 'ML Engine' },
+];
+
+const pageVariants: Variants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+};
 
 export default function DashboardPage() {
   const { isConnected: wsConnected, lastMessage } = useSentinelWebSocket();
 
-  // State
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [trafficTimeseries, setTrafficTimeseries] = useState<TrafficTimeseriesPoint[]>([]);
   const [anomaliesTimeseries, setAnomaliesTimeseries] = useState<AnomalyTimeseriesPoint[]>([]);
@@ -54,26 +71,16 @@ export default function DashboardPage() {
   const [sequenceGraph, setSequenceGraph] = useState<SequenceFlowGraph | null>(null);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'health' | 'threats' | 'engine'>('overview');
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>('Just now');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Load telemetry from backend APIs
   const loadDashboardData = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [
-        ov,
-        traffic,
-        anom,
-        risk,
-        topEp,
-        health,
-        geo,
-        seq,
-        alertList,
-      ] = await Promise.all([
+      const [ov, traffic, anom, risk, topEp, health, geo, seq, alertList] = await Promise.all([
         api.getOverview().catch(() => null),
         api.getTrafficTimeseries(30).catch(() => []),
         api.getAnomaliesTimeseries(30).catch(() => []),
@@ -96,291 +103,292 @@ export default function DashboardPage() {
       setAlerts(alertList);
       setLastRefreshedAt(new Date().toLocaleTimeString());
     } catch (err) {
-      console.error('Failed to load SentinelAPI dashboard telemetry:', err);
+      console.error('Failed to load dashboard data:', err);
     } finally {
       setRefreshing(false);
     }
   }, []);
 
-  // Initial load
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+  useEffect(() => { loadDashboardData(); }, [loadDashboardData]);
+  useEffect(() => { if (lastMessage) loadDashboardData(); }, [lastMessage, loadDashboardData]);
 
-  // Live WebSocket update trigger
-  useEffect(() => {
-    if (lastMessage) {
-      // Re-fetch overview and metrics when live events arrive
-      loadDashboardData();
-    }
-  }, [lastMessage, loadDashboardData]);
-
-  // Alert mitigations
   const handleMitigateAlert = async (alertId: string, action: 'ban_ip' | 'quarantine' | 'throttle') => {
-    try {
-      await api.mitigateAlert(alertId, action);
-      await loadDashboardData();
-    } catch (err) {
-      console.error('Mitigation failed:', err);
-    }
+    try { await api.mitigateAlert(alertId, action); await loadDashboardData(); }
+    catch (err) { console.error('Mitigation failed:', err); }
   };
 
   const handleUpdateAlertStatus = async (alertId: string, status: AlertStatus) => {
-    try {
-      await api.updateAlert(alertId, { status });
-      await loadDashboardData();
-    } catch (err) {
-      console.error('Status update failed:', err);
-    }
+    try { await api.updateAlert(alertId, { status }); await loadDashboardData(); }
+    catch (err) { console.error('Status update failed:', err); }
   };
 
   const handleRetrainModels = async () => {
-    // Model retraining simulation/trigger
     await new Promise((r) => setTimeout(r, 1500));
     await loadDashboardData();
   };
 
-  // Derive client records for comparison from health and alerts
   const clientMap = new Map<string, any>();
   alerts.forEach((a) => {
     if (!clientMap.has(a.client_ip)) {
       clientMap.set(a.client_ip, {
         client_ip: a.client_ip,
         reputation_score: Math.max(10, 100 - a.risk_score),
-        total_requests: 1,
-        error_count: 1,
-        distinct_endpoints_count: 1,
+        total_requests: 1, error_count: 1, distinct_endpoints_count: 1,
         is_banned: a.mitigation_action === 'ban_ip',
         is_quarantined: a.mitigation_action === 'quarantine',
       });
     } else {
       const c = clientMap.get(a.client_ip);
-      c.total_requests += 1;
-      c.error_count += 1;
+      c.total_requests += 1; c.error_count += 1;
     }
   });
   const clientList = Array.from(clientMap.values());
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-slate-100 cyber-grid flex flex-col font-sans">
-      {/* Top Cyber Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800/80 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 text-white shadow-lg shadow-cyan-500/20">
-            <Shield className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono font-extrabold text-base tracking-wider bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-400 bg-clip-text text-transparent">
-                SENTINEL<span className="text-white">API</span>
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                PROD v1.0
-              </span>
+    <div className="min-h-screen bg-[#0F172A] text-slate-100 ambient-grid flex flex-col font-sans">
+      {/* ═══════ Floating Glassmorphism Navbar ═══════ */}
+      <header
+        className="sticky top-0 z-50 mx-auto w-full max-w-7xl mt-3 px-4 sm:px-6"
+        role="banner"
+      >
+        <nav className="glass-card px-4 sm:px-6 py-3 flex items-center justify-between gap-4 glow-violet-soft">
+          {/* Brand */}
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 text-white shadow-lg shadow-violet-500/25">
+              <Shield className="w-5 h-5" aria-hidden="true" />
             </div>
-            <p className="text-[11px] font-mono text-slate-400 hidden sm:block">
-              Intelligent API Anomaly Detection & Closed-Loop Adaptive Protection
-            </p>
-          </div>
-        </div>
-
-        {/* Global Controls & Refresh */}
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-400">
-            <span>Refreshed: <span className="text-slate-200">{lastRefreshedAt}</span></span>
-          </div>
-
-          <button
-            onClick={loadDashboardData}
-            disabled={refreshing}
-            className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-colors flex items-center gap-1.5 font-mono text-xs"
-            title="Refresh Real Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-cyan-400' : ''}`} />
-            <span className="hidden sm:inline">Sync</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
-          <div className="flex flex-wrap gap-1.5 p-1 bg-slate-900/80 border border-slate-800 rounded-xl font-mono text-xs">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
-                activeTab === 'overview'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              <span>Overview & Telemetry</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('health')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
-                activeTab === 'health'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <HeartPulse className="w-4 h-4" />
-              <span>Endpoint Health & Latency</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('threats')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
-                activeTab === 'threats'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              <span>Threats & Attacks ({alerts.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('engine')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg transition-all ${
-                activeTab === 'engine'
-                  ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Cpu className="w-4 h-4" />
-              <span>ML Engine & Live Ingestion</span>
-            </button>
-          </div>
-
-          <div className="font-mono text-xs text-slate-400 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span>Strict Real Data Mode Enabled</span>
-          </div>
-        </div>
-
-        {/* Global Overview Cards (Shown across tabs) */}
-        <OverviewCards overview={overview} wsConnected={wsConnected} />
-
-        {/* TAB 1: OVERVIEW & LIVE TELEMETRY */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Top Row: Traffic Volume + Anomaly Rate */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TrafficVolumeChart data={trafficTimeseries} />
-              <AnomalyRateChart data={anomaliesTimeseries} />
-            </div>
-
-            {/* Middle Row: Risk Score Distribution + Top Anomalous Endpoints */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RiskDistributionChart data={riskDistribution} />
-              <TopAnomalousEndpointsChart
-                data={topEndpoints}
-                onSelectEndpoint={(ep) => {
-                  const matchingAlert = alerts.find((a) => a.endpoint === ep);
-                  if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
-                }}
-              />
-            </div>
-
-            {/* Quick Live Stream Injector */}
-            <RealTrafficInjector onTrafficIngested={loadDashboardData} />
-          </div>
-        )}
-
-        {/* TAB 2: ENDPOINT HEALTH & RELIABILITY */}
-        {activeTab === 'health' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <EndpointHealthMatrix
-                data={healthMatrix}
-                onSelectEndpoint={(epId) => {
-                  const matchingAlert = alerts.find((a) => a.endpoint.includes(epId));
-                  if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
-                }}
-              />
-              <LatencyVsErrorScatter
-                data={healthMatrix}
-                onSelectEndpoint={(epId) => {
-                  const matchingAlert = alerts.find((a) => a.endpoint.includes(epId));
-                  if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
-                }}
-              />
-            </div>
-
-            {/* Discovered Schema Summary */}
-            <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-100 uppercase tracking-wider">
-                  Automatic API Inventory & Schema Discovery
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-extrabold text-base tracking-wider gradient-text-brand">
+                  SENTINEL
                 </span>
-                <span className="text-cyan-400">
-                  {overview?.total_endpoints || 0} Parametric Routes Observed
+                <span className="font-mono font-extrabold text-base tracking-wider text-white">API</span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-violet-500/10 text-violet-400 border border-violet-500/30">
+                  PROD v1.0
                 </span>
               </div>
-              <p className="text-slate-400 text-[11px]">
-                Endpoint paths, HTTP methods, query parameters, and observed status codes are continuously discovered from normalized ingested traffic without requiring static OpenAPI specs.
+              <p className="text-[10px] font-mono text-slate-500 hidden sm:block tracking-wide">
+                Intelligent API Anomaly Detection & Adaptive Protection
               </p>
             </div>
           </div>
-        )}
 
-        {/* TAB 3: THREATS, ALERTS & ATTACK CHAINS */}
-        {activeTab === 'threats' && (
-          <div className="space-y-6">
-            {/* Live Incident Timeline */}
-            <AlertTimeline
-              alerts={alerts}
-              onSelectAlert={(a) => setSelectedEventId(a.event_id)}
-              onMitigate={handleMitigateAlert}
-              onUpdateStatus={handleUpdateAlertStatus}
-            />
-
-            {/* Sequence Flow + Geo Origin Map */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SequenceFlowDiagram data={sequenceGraph} />
-              <GeoDistributionMap data={geoData} />
+          {/* Desktop Controls */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="glass-card-sm px-3 py-1.5 text-[11px] font-mono text-slate-400 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-glow-pulse" />
+              Synced: <span className="text-slate-200">{lastRefreshedAt}</span>
             </div>
-
-            {/* Client Comparison */}
-            <ClientBehaviorComparison
-              clients={clientList}
-              onInspectClient={(ip) => {
-                const matchingAlert = alerts.find((a) => a.client_ip === ip);
-                if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
-              }}
-              onBanClient={(ip) => {
-                const matchingAlert = alerts.find((a) => a.client_ip === ip);
-                if (matchingAlert) handleMitigateAlert(matchingAlert.alert_id, 'ban_ip');
-              }}
-            />
+            <button
+              onClick={loadDashboardData}
+              disabled={refreshing}
+              className="p-2 rounded-xl glass-card-sm hover:bg-slate-700/30 text-slate-300 transition-all flex items-center gap-1.5 text-xs font-mono focus-visible:ring-2 focus-visible:ring-violet-500"
+              aria-label="Refresh dashboard data"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-violet-400' : ''}`} />
+              <span className="hidden lg:inline">Sync</span>
+            </button>
           </div>
-        )}
 
-        {/* TAB 4: ML ENGINE & INGESTION CONSOLE */}
-        {activeTab === 'engine' && (
-          <div className="space-y-6">
-            <ModelPerformanceMetrics onTriggerRetrain={handleRetrainModels} />
-            <RealTrafficInjector onTrafficIngested={loadDashboardData} />
+          {/* Mobile Menu Toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl glass-card-sm text-slate-300"
+            aria-label="Toggle mobile menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </nav>
+
+        {/* Mobile Drawer */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden glass-card mt-2 overflow-hidden"
+            >
+              <nav className="p-3 space-y-1" role="navigation" aria-label="Mobile navigation">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => { setActiveTab(tab.key); setMobileMenuOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-mono transition-all ${
+                        activeTab === tab.key ? 'pill-active font-semibold' : 'pill-inactive'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {tab.label}
+                      {tab.key === 'threats' && alerts.length > 0 && (
+                        <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold">
+                          {alerts.length}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                <div className="pt-2 border-t border-slate-700/30">
+                  <button
+                    onClick={() => { loadDashboardData(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-mono text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-violet-400' : ''}`} />
+                    Sync Data
+                  </button>
+                </div>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+
+      {/* ═══════ Main Container ═══════ */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 pb-8 space-y-6" role="main">
+        {/* Desktop Tab Navigation */}
+        <div className="hidden md:flex flex-wrap items-center justify-between gap-3">
+          <nav className="flex gap-1 p-1 glass-card-sm" role="tablist" aria-label="Dashboard sections">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  role="tab"
+                  aria-selected={activeTab === tab.key}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono transition-all duration-200 ${
+                    activeTab === tab.key ? 'pill-active font-semibold' : 'pill-inactive'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                  {tab.key === 'threats' && alerts.length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold">
+                      {alerts.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-glow-pulse" />
+            <span>Live Data Mode</span>
           </div>
-        )}
+        </div>
+
+        {/* Overview Cards (always visible) */}
+        <OverviewCards overview={overview} wsConnected={wsConnected} />
+
+        {/* Tab Content with Animated Transitions */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'overview' && (
+            <motion.div key="overview" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <TrafficVolumeChart data={trafficTimeseries} />
+                <AnomalyRateChart data={anomaliesTimeseries} />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <RiskDistributionChart data={riskDistribution} />
+                <TopAnomalousEndpointsChart
+                  data={topEndpoints}
+                  onSelectEndpoint={(ep) => {
+                    const matchingAlert = alerts.find((a) => a.endpoint === ep);
+                    if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
+                  }}
+                />
+              </div>
+              <RealTrafficInjector onTrafficIngested={loadDashboardData} />
+            </motion.div>
+          )}
+
+          {activeTab === 'health' && (
+            <motion.div key="health" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <EndpointHealthMatrix
+                  data={healthMatrix}
+                  onSelectEndpoint={(epId) => {
+                    const matchingAlert = alerts.find((a) => a.endpoint.includes(epId));
+                    if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
+                  }}
+                />
+                <LatencyVsErrorScatter
+                  data={healthMatrix}
+                  onSelectEndpoint={(epId) => {
+                    const matchingAlert = alerts.find((a) => a.endpoint.includes(epId));
+                    if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
+                  }}
+                />
+              </div>
+              <div className="glass-card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-slate-200 uppercase tracking-widest">
+                    API Schema Discovery
+                  </span>
+                  <span className="text-xs font-mono text-violet-400">
+                    {overview?.total_endpoints || 0} Routes Observed
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-mono leading-relaxed">
+                  Endpoints, methods, query params, and status codes are continuously discovered from real ingested traffic without static OpenAPI specs.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'threats' && (
+            <motion.div key="threats" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+              <AlertTimeline
+                alerts={alerts}
+                onSelectAlert={(a) => setSelectedEventId(a.event_id)}
+                onMitigate={handleMitigateAlert}
+                onUpdateStatus={handleUpdateAlertStatus}
+              />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <SequenceFlowDiagram data={sequenceGraph} />
+                <GeoDistributionMap data={geoData} />
+              </div>
+              <ClientBehaviorComparison
+                clients={clientList}
+                onInspectClient={(ip) => {
+                  const matchingAlert = alerts.find((a) => a.client_ip === ip);
+                  if (matchingAlert) setSelectedEventId(matchingAlert.event_id);
+                }}
+                onBanClient={(ip) => {
+                  const matchingAlert = alerts.find((a) => a.client_ip === ip);
+                  if (matchingAlert) handleMitigateAlert(matchingAlert.alert_id, 'ban_ip');
+                }}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'engine' && (
+            <motion.div key="engine" variants={pageVariants} initial="initial" animate="animate" exit="exit" className="space-y-6">
+              <ModelPerformanceMetrics onTriggerRetrain={handleRetrainModels} />
+              <RealTrafficInjector onTrafficIngested={loadDashboardData} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* Forensic Deep Inspection Modal */}
+      {/* Forensic Deep-Dive Modal */}
       <ForensicTraceModal
         eventId={selectedEventId}
         onClose={() => setSelectedEventId(null)}
       />
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-800/80 bg-[#090d16] px-6 py-4 text-xs font-mono text-slate-500 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          SentinelAPI Platform • Production Intelligent API Defense
-        </div>
-        <div className="flex items-center gap-4 text-[11px]">
-          <span>Real Telemetry Mode</span>
-          <span>Zero Mock Data</span>
-          <span className="text-cyan-400">SOC Operational</span>
+      {/* ═══════ Footer ═══════ */}
+      <footer className="mt-auto border-t border-slate-800/40 bg-[#0F172A]/80 backdrop-blur-sm px-6 py-4" role="contentinfo">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-600">
+          <span>SentinelAPI Platform — Production API Defense</span>
+          <div className="flex items-center gap-4">
+            <span>Real Telemetry</span>
+            <span className="text-violet-400/60">SOC Operational</span>
+          </div>
         </div>
       </footer>
     </div>

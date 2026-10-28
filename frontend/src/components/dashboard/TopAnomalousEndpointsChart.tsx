@@ -12,7 +12,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { Target, Flame } from 'lucide-react';
+import { Flame, ShieldAlert, ArrowUpRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Props {
   data: TopEndpointAnomalies[];
@@ -22,14 +23,13 @@ interface Props {
 export function TopAnomalousEndpointsChart({ data, onSelectEndpoint }: Props) {
   if (!data || data.length === 0) {
     return (
-      <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 flex items-center justify-center min-h-[260px] text-slate-500 text-xs font-mono">
-        <Target className="w-5 h-5 mr-2 opacity-50" />
-        No anomalous endpoints detected yet. System traffic is within baseline limits.
+      <div className="glass-card p-5 flex items-center justify-center min-h-[280px] text-slate-500 text-xs font-mono">
+        <ShieldAlert className="w-5 h-5 mr-2 text-slate-600" />
+        No anomalous endpoints detected. All routes within baseline parameters.
       </div>
     );
   }
 
-  // Format short endpoint labels for the chart
   const chartData = data.slice(0, 7).map((ep) => {
     const rawEp = ep.endpoint || (ep as any).path_template || (ep as any).endpoint_id || '/';
     const method = ep.http_method || 'GET';
@@ -38,7 +38,7 @@ export function TopAnomalousEndpointsChart({ data, onSelectEndpoint }: Props) {
     const detector = ep.primary_detector || (ep as any).risk_level || 'Ensemble';
 
     return {
-      name: `${method} ${rawEp.length > 25 ? rawEp.substring(0, 22) + '...' : rawEp}`,
+      name: `${method} ${rawEp.length > 22 ? rawEp.substring(0, 19) + '...' : rawEp}`,
       fullEndpoint: rawEp,
       method,
       anomaly_count: anomCount,
@@ -48,63 +48,79 @@ export function TopAnomalousEndpointsChart({ data, onSelectEndpoint }: Props) {
   });
 
   const getHeatmapColor = (score: number) => {
-    if (score >= 80) return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-    if (score >= 60) return 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-    if (score >= 40) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40';
-    return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
+    if (score >= 80) return 'bg-rose-500/15 text-rose-300 border-rose-500/40';
+    if (score >= 60) return 'bg-amber-500/15 text-amber-300 border-amber-500/40';
+    if (score >= 40) return 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30';
+    return 'bg-violet-500/15 text-violet-300 border-violet-500/30';
+  };
+
+  const getBarColor = (score: number) => {
+    if (score >= 80) return '#ef4444';
+    if (score >= 60) return '#f97316';
+    if (score >= 40) return '#eab308';
+    return '#7c3aed';
   };
 
   return (
-    <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <Flame className="w-4 h-4" />
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.25 }}
+      className="glass-card p-5 flex flex-col h-full"
+    >
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20 shadow-sm shadow-violet-500/10">
+            <Flame className="w-4 h-4" aria-hidden="true" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-100 uppercase tracking-wider font-mono">
-              Top Anomalous Endpoints & Threat Heatmap
+            <h4 className="text-sm font-semibold text-white tracking-wide">
+              Top Anomalous Endpoints
             </h4>
-            <p className="text-xs text-slate-400">
-              Ranked by anomaly frequency & attack severity (Real Ingested Telemetry)
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Ranked by attack volume & threat severity
             </p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start flex-1">
         {/* Horizontal Bar Chart */}
-        <div className="min-h-[240px]">
-          <ResponsiveContainer width="100%" height={240}>
+        <div className="min-h-[230px] w-full">
+          <ResponsiveContainer width="100%" height={230}>
             <BarChart
               layout="vertical"
               data={chartData}
-              margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+              margin={{ top: 5, right: 15, left: 10, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-              <XAxis type="number" stroke="#64748b" fontSize={11} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(51,65,85,0.4)" horizontal={false} />
+              <XAxis type="number" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
               <YAxis
                 type="category"
                 dataKey="name"
                 stroke="#94a3b8"
                 fontSize={10}
                 tickLine={false}
-                width={120}
+                axisLine={false}
+                width={110}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#0f172a',
-                  borderColor: '#334155',
-                  borderRadius: '0.5rem',
-                  fontSize: '12px',
+                  backgroundColor: 'rgba(15,23,42,0.95)',
+                  backdropFilter: 'blur(12px)',
+                  borderColor: 'rgba(124,58,237,0.3)',
+                  borderRadius: '12px',
+                  fontSize: '11px',
                   fontFamily: 'monospace',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
                 }}
+                formatter={(value: any) => [`${value} incidents`, 'Anomalies']}
               />
-              <Bar dataKey="anomaly_count" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="anomaly_count" radius={[0, 6, 6, 0]}>
                 {chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={entry.max_risk_score >= 80 ? '#f43f5e' : entry.max_risk_score >= 60 ? '#fb923c' : '#06b6d4'}
+                    fill={getBarColor(entry.max_risk_score)}
                   />
                 ))}
               </Bar>
@@ -113,38 +129,40 @@ export function TopAnomalousEndpointsChart({ data, onSelectEndpoint }: Props) {
         </div>
 
         {/* Endpoint Heatmap Grid */}
-        <div className="space-y-2 font-mono text-xs overflow-y-auto max-h-[240px] pr-1">
-          {data.map((ep, i) => {
+        <div className="space-y-2 font-mono text-xs overflow-y-auto max-h-[230px] pr-1">
+          {data.slice(0, 8).map((ep, i) => {
             const endpointStr = ep.endpoint || ep.path_template || ep.endpoint_id || '/';
             const riskScore = ep.max_risk_score ?? ep.highest_risk_score ?? 0;
             return (
-              <div
+              <button
                 key={i}
+                type="button"
                 onClick={() => onSelectEndpoint && onSelectEndpoint(endpointStr)}
-                className="p-2.5 rounded-lg bg-slate-800/40 border border-slate-700/50 hover:border-cyan-500/50 transition-all cursor-pointer flex items-center justify-between gap-2"
+                className="w-full text-left p-2.5 rounded-xl glass-card-sm border border-slate-700/40 hover:border-violet-500/50 hover:bg-violet-500/5 transition-all duration-200 cursor-pointer flex items-center justify-between gap-2 group focus-visible:ring-2 focus-visible:ring-violet-500"
               >
                 <div className="flex items-center gap-2 truncate">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-200">
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-800 text-violet-300 border border-slate-700/60">
                     {ep.http_method}
                   </span>
-                  <span className="text-slate-200 truncate font-mono text-[11px] hover:text-cyan-400">
+                  <span className="text-slate-300 truncate font-mono text-[11px] group-hover:text-white transition-colors">
                     {endpointStr}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`px-2 py-0.5 rounded text-[10px] border font-bold ${getHeatmapColor(riskScore)}`}>
-                    Risk {riskScore.toFixed(0)}
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] border font-bold ${getHeatmapColor(riskScore)}`}>
+                    Score {riskScore.toFixed(0)}
                   </span>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-slate-500 group-hover:text-slate-400">
                     {ep.anomaly_count} hits
                   </span>
+                  <ArrowUpRight className="w-3 h-3 text-slate-600 group-hover:text-violet-400 transition-colors" />
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

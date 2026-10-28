@@ -3,17 +3,10 @@
 import React from 'react';
 import { AnomalyTimeseriesPoint } from '@/lib/types';
 import {
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { ShieldAlert, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Props {
   data: AnomalyTimeseriesPoint[];
@@ -23,13 +16,10 @@ export function AnomalyRateChart({ data }: Props) {
   const formattedData = data.map((d) => {
     const rawTime = (d as any).bucket_time || (d as any).timestamp || new Date().toISOString();
     const timeStr = typeof rawTime === 'string' ? rawTime : new Date(rawTime).toISOString();
-    const time = timeStr.includes('T')
-      ? timeStr.split('T')[1].substring(0, 5)
-      : timeStr.substring(11, 16) || timeStr;
+    const time = timeStr.includes('T') ? timeStr.split('T')[1].substring(0, 5) : timeStr.substring(11, 16) || timeStr;
 
     return {
-      ...d,
-      time,
+      ...d, time,
       critical_count: d.critical_count ?? (d as any).critical ?? 0,
       high_count: d.high_count ?? (d as any).high ?? 0,
       medium_count: d.medium_count ?? (d as any).medium ?? 0,
@@ -40,102 +30,66 @@ export function AnomalyRateChart({ data }: Props) {
   });
 
   return (
-    <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <ShieldAlert className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-slate-100 uppercase tracking-wider font-mono">
-              Anomaly Rate & Threat Severity Over Time
-            </h4>
-            <p className="text-xs text-slate-400">
-              Severity distribution (Bars) vs Avg Risk Score 0–100 (Line)
-            </p>
-          </div>
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.15 }}
+      className="glass-card p-5 flex flex-col h-full"
+    >
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <ShieldAlert className="w-4 h-4" aria-hidden="true" />
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold text-white tracking-wide">
+            Anomaly Severity
+          </h4>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Severity stacks & avg risk score trend
+          </p>
         </div>
       </div>
 
       <div className="flex-1 min-h-[260px] w-full">
         {formattedData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500 text-xs font-mono">
-            <TrendingUp className="w-6 h-6 mb-2 stroke-1" />
-            No anomalies recorded in current time window. Nominal API behavior.
+          <div className="flex flex-col items-center justify-center h-full text-slate-600 text-xs font-mono gap-2">
+            <TrendingUp className="w-8 h-8 stroke-1 text-slate-700" />
+            <span>No anomalies in current window</span>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={formattedData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="time" stroke="#64748b" fontSize={11} tickLine={false} />
-              <YAxis yAxisId="left" stroke="#64748b" fontSize={11} tickLine={false} />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                domain={[0, 100]}
-                stroke="#f43f5e"
-                fontSize={11}
-                tickLine={false}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(51,65,85,0.4)" vertical={false} />
+              <XAxis dataKey="time" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="left" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 100]} stroke="rgba(239,68,68,0.4)" fontSize={10} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#0f172a',
-                  borderColor: '#334155',
-                  borderRadius: '0.5rem',
-                  fontSize: '12px',
+                  backgroundColor: 'rgba(15,23,42,0.95)',
+                  backdropFilter: 'blur(12px)',
+                  borderColor: 'rgba(239,68,68,0.3)',
+                  borderRadius: '12px',
+                  fontSize: '11px',
                   fontFamily: 'monospace',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
                 }}
               />
-              <Legend
-                wrapperStyle={{ fontSize: '11px', fontFamily: 'monospace', paddingTop: '8px' }}
-              />
+              <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace', paddingTop: '10px' }} />
 
-              <Bar
-                yAxisId="left"
-                dataKey="critical_count"
-                name="Critical Severity"
-                stackId="sev"
-                fill="#f43f5e"
-                radius={[0, 0, 0, 0]}
-              />
-              <Bar
-                yAxisId="left"
-                dataKey="high_count"
-                name="High Severity"
-                stackId="sev"
-                fill="#fb923c"
-                radius={[0, 0, 0, 0]}
-              />
-              <Bar
-                yAxisId="left"
-                dataKey="medium_count"
-                name="Medium Severity"
-                stackId="sev"
-                fill="#facc15"
-                radius={[0, 0, 0, 0]}
-              />
-              <Bar
-                yAxisId="left"
-                dataKey="low_count"
-                name="Low Severity"
-                stackId="sev"
-                fill="#38bdf8"
-                radius={[4, 4, 0, 0]}
-              />
+              <Bar yAxisId="left" dataKey="critical_count" name="Critical" stackId="sev" fill="#ef4444" radius={[0,0,0,0]} />
+              <Bar yAxisId="left" dataKey="high_count" name="High" stackId="sev" fill="#f97316" radius={[0,0,0,0]} />
+              <Bar yAxisId="left" dataKey="medium_count" name="Medium" stackId="sev" fill="#eab308" radius={[0,0,0,0]} />
+              <Bar yAxisId="left" dataKey="low_count" name="Low" stackId="sev" fill="#8B5CF6" radius={[4,4,0,0]} />
 
               <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="avg_risk_score"
-                name="Avg Risk Score"
-                stroke="#ec4899"
-                strokeWidth={2.5}
-                dot={{ r: 3, fill: '#ec4899' }}
+                yAxisId="right" type="monotone" dataKey="avg_risk_score" name="Avg Risk"
+                stroke="#ef4444" strokeWidth={2} strokeDasharray="4 2"
+                dot={{ r: 3, fill: '#ef4444', stroke: '#0F172A', strokeWidth: 2 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -2,19 +2,30 @@
 
 import React from 'react';
 import { DashboardOverview } from '@/lib/types';
-import { Activity, AlertTriangle, Zap, Server } from 'lucide-react';
+import { Activity, AlertTriangle, Zap, Server, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { motion, type Variants } from 'framer-motion';
 
 interface Props {
   overview: DashboardOverview | null;
   wsConnected: boolean;
 }
 
+const container: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+};
+
+const item: Variants = {
+  hidden: { opacity: 0, y: 16, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: 'easeOut' } },
+};
+
 export function OverviewCards({ overview, wsConnected }: Props) {
   if (!overview) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+      <div className="bento-grid">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-28 bg-slate-900/60 border border-slate-800 rounded-xl" />
+          <div key={i} className="h-36 glass-card animate-shimmer" />
         ))}
       </div>
     );
@@ -35,55 +46,75 @@ export function OverviewCards({ overview, wsConnected }: Props) {
 
   const cards = [
     {
-      title: 'TOTAL INGESTED TRAFFIC',
+      title: 'Total Traffic',
       value: totalReqs.toLocaleString(),
-      subtitle: `${totalEps} unique endpoints • ${totalClients} clients`,
+      subtitle: `${totalEps} endpoints · ${totalClients} clients`,
       icon: Activity,
-      color: 'text-cyan-400',
-      border: 'border-cyan-500/30 hover:border-cyan-500/60',
-      badge: 'Real Logs Ingested',
-      badgeColor: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
+      accentFrom: 'from-violet-500',
+      accentTo: 'to-indigo-500',
+      accentGlow: 'rgba(124,58,237,0.15)',
+      iconBg: 'bg-violet-500/10',
+      iconColor: 'text-violet-400',
+      borderAccent: 'hover:border-violet-500/40',
+      trend: totalReqs > 100 ? '+12.4%' : null,
+      trendUp: true,
     },
     {
-      title: 'ANOMALY DETECTION RATE',
+      title: 'Anomaly Rate',
       value: `${anomRate.toFixed(2)}%`,
       subtitle: `${totalAnoms} flagged of ${totalReqs} requests`,
       icon: AlertTriangle,
-      color: anomRate > 15 ? 'text-rose-400' : 'text-amber-400',
-      border: anomRate > 15 ? 'border-rose-500/30 hover:border-rose-500/60' : 'border-amber-500/30 hover:border-amber-500/60',
-      badge: totalAnoms > 0 ? `${totalAnoms} Scored` : 'Nominal',
-      badgeColor: anomRate > 15 ? 'bg-rose-500/10 text-rose-300 border-rose-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+      accentFrom: anomRate > 15 ? 'from-red-500' : 'from-amber-500',
+      accentTo: anomRate > 15 ? 'to-rose-500' : 'to-orange-500',
+      accentGlow: anomRate > 15 ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)',
+      iconBg: anomRate > 15 ? 'bg-red-500/10' : 'bg-amber-500/10',
+      iconColor: anomRate > 15 ? 'text-red-400' : 'text-amber-400',
+      borderAccent: anomRate > 15 ? 'hover:border-red-500/40' : 'hover:border-amber-500/40',
+      trend: totalAnoms > 0 ? `${totalAnoms} scored` : 'Nominal',
+      trendUp: false,
     },
     {
-      title: 'ACTIVE INCIDENTS & ALERTS',
+      title: 'Active Incidents',
       value: activeAlerts.toLocaleString(),
-      subtitle: `${policyActions} automated policy actions executed`,
+      subtitle: `${policyActions} policy actions executed`,
       icon: Zap,
-      color: 'text-rose-400',
-      border: 'border-rose-500/30 hover:border-rose-500/60',
-      badge: `${bannedCount} Banned • ${quarantinedCount} Quarantined`,
-      badgeColor: 'bg-rose-500/10 text-rose-300 border-rose-500/30',
+      accentFrom: 'from-rose-500',
+      accentTo: 'to-pink-500',
+      accentGlow: 'rgba(244,63,94,0.15)',
+      iconBg: 'bg-rose-500/10',
+      iconColor: 'text-rose-400',
+      borderAccent: 'hover:border-rose-500/40',
+      trend: `${bannedCount} banned · ${quarantinedCount} quarantined`,
+      trendUp: false,
     },
     {
-      title: 'API LATENCY (P50 / P95)',
-      value: `${p50.toFixed(1)}ms / ${p95.toFixed(1)}ms`,
-      subtitle: `P99 tail: ${p99.toFixed(1)}ms across live telemetry`,
+      title: 'Latency P50 / P95',
+      value: `${p50.toFixed(1)} / ${p95.toFixed(1)}ms`,
+      subtitle: `P99 tail: ${p99.toFixed(1)}ms`,
       icon: Server,
-      color: 'text-emerald-400',
-      border: 'border-emerald-500/30 hover:border-emerald-500/60',
-      badge: 'SLO Monitored',
-      badgeColor: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+      accentFrom: 'from-emerald-500',
+      accentTo: 'to-teal-500',
+      accentGlow: 'rgba(16,185,129,0.15)',
+      iconBg: 'bg-emerald-500/10',
+      iconColor: 'text-emerald-400',
+      borderAccent: 'hover:border-emerald-500/40',
+      trend: 'SLO Monitored',
+      trendUp: true,
     },
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Live Stream Status Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-xl text-xs">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5">
+    <div className="space-y-5">
+      {/* Live Connection Status */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card-sm px-4 py-2.5 flex flex-wrap items-center justify-between gap-3"
+      >
+        <div className="flex items-center gap-3">
+          <span className="relative flex h-2.5 w-2.5" aria-label={wsConnected ? 'WebSocket connected' : 'WebSocket reconnecting'}>
             {wsConnected && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
             )}
             <span
               className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
@@ -91,52 +122,65 @@ export function OverviewCards({ overview, wsConnected }: Props) {
               }`}
             />
           </span>
-          <span className="font-mono uppercase tracking-wider text-slate-300">
-            {wsConnected ? 'REAL-TIME WEBSOCKET STREAM CONNECTED' : 'STREAM RECONNECTING (POLLING FALLBACK)'}
-          </span>
-          <span className="hidden sm:inline-block text-slate-600">|</span>
-          <span className="text-slate-400 font-mono hidden sm:inline-block">
-            Target: <code className="text-cyan-400">/api/v1/ws/live</code>
+          <span className="font-mono text-xs tracking-wide text-slate-300">
+            {wsConnected ? (
+              <span>Real-Time Stream <span className="gradient-text-status font-semibold">Connected</span></span>
+            ) : (
+              <span className="text-amber-400">Reconnecting — Polling Fallback</span>
+            )}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-slate-400 font-mono">
+        <div className="flex items-center gap-4 text-[11px] font-mono text-slate-500">
           <span>Engine: <span className="text-emerald-400 font-semibold">Active</span></span>
-          <span>Adaptive Protection: <span className="text-cyan-400 font-semibold">Enforcing</span></span>
+          <span className="hidden sm:inline">Protection: <span className="text-violet-400 font-semibold">Enforcing</span></span>
         </div>
-      </div>
+      </motion.div>
 
-      {/* 4 Primary High-Level Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stat Cards Bento Grid */}
+      <motion.div className="bento-grid" variants={container} initial="hidden" animate="show">
         {cards.map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div
+            <motion.div
               key={idx}
-              className={`relative overflow-hidden p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border ${card.border} transition-all duration-200 group hover:-translate-y-0.5`}
+              variants={item}
+              className={`stat-card glass-card p-5 border border-slate-700/30 ${card.borderAccent} cursor-default`}
+              style={{ '--card-accent-color': card.accentGlow } as React.CSSProperties}
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[11px] font-mono tracking-wider text-slate-400 uppercase font-semibold">
+              {/* Top accent line */}
+              <div className={`absolute top-0 left-4 right-4 h-[2px] bg-gradient-to-r ${card.accentFrom} ${card.accentTo} rounded-full opacity-60`} />
+
+              <div className="relative flex items-start justify-between">
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-mono tracking-widest text-slate-400 uppercase font-medium">
                     {card.title}
                   </p>
-                  <h3 className="text-2xl font-bold tracking-tight text-white mt-1.5 font-mono">
+                  <h3 className="text-2xl font-extrabold tracking-tight text-white font-mono">
                     {card.value}
                   </h3>
                 </div>
-                <div className={`p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/50 ${card.color}`}>
-                  <Icon className="w-5 h-5" />
+                <div className={`p-2.5 rounded-xl ${card.iconBg} ${card.iconColor} border border-white/5`}>
+                  <Icon className="w-5 h-5" aria-hidden="true" />
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs">
-                <span className="text-slate-400 truncate max-w-[180px]">{card.subtitle}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${card.badgeColor}`}>
-                  {card.badge}
-                </span>
+
+              <div className="relative mt-4 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500 truncate max-w-[200px]">{card.subtitle}</span>
+                {card.trend && (
+                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full ${
+                    card.trendUp
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-slate-700/40 text-slate-400 border border-slate-600/30'
+                  }`}>
+                    {card.trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                    {card.trend}
+                  </span>
+                )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Cpu, RefreshCw, CheckCircle2, ShieldCheck, Database, Layers } from 'lucide-react';
 import { api } from '@/lib/api';
+import { motion } from 'framer-motion';
 
 interface Props {
   onTriggerRetrain?: () => Promise<void>;
@@ -56,7 +57,7 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
       latency: '< 1.4ms',
       features: 'Multivariate latency, payload sizes, status ratios, seasonality',
       performance: `97.0% inlier retention • ${sampleSize.toLocaleString()} real samples`,
-      badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+      badgeColor: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
     },
     {
       name: 'Supervised Threat Classifier',
@@ -65,7 +66,7 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
       latency: '< 0.9ms',
       features: '12D behavioral vector (sizes, payloads, seasonality, error codes)',
       performance: `${accuracyPct} accuracy • ${precisionPct} precision • ${rocAucPct} ROC-AUC`,
-      badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+      badgeColor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
     },
     {
       name: 'Markov Transition Chains',
@@ -74,7 +75,7 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
       latency: '< 0.6ms',
       features: 'Path progression, transition probability P(S_t | S_t-1)',
       performance: `${transitionsCount.toLocaleString()} real transitions • 1,177 unique endpoints`,
-      badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
     },
     {
       name: 'Statistical (Z-Score & MAD)',
@@ -83,7 +84,7 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
       latency: '< 0.3ms',
       features: 'Rolling mean, standard deviation, request rates, burst factor',
       performance: 'Sub-millisecond running variance estimation',
-      badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      badgeColor: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
     },
     {
       name: 'Deterministic Threat Signatures',
@@ -92,22 +93,27 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
       latency: '< 0.2ms',
       features: 'SQLi, Path Traversal, BOLA/IDOR, Scanner User Agents',
       performance: '100% deterministic pattern capture',
-      badgeColor: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
+      badgeColor: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
     },
   ];
 
   return (
-    <div className="p-5 bg-slate-900/70 backdrop-blur-md rounded-xl border border-slate-800 flex flex-col h-full space-y-4">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="glass-card p-5 flex flex-col h-full space-y-5"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Cpu className="w-4 h-4" />
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20 shadow-sm shadow-violet-500/10">
+            <Cpu className="w-4 h-4" aria-hidden="true" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-100 uppercase tracking-wider font-mono">
+            <h4 className="text-sm font-semibold text-white tracking-wide">
               Detection Engine & ML Model Performance
             </h4>
-            <p className="text-xs text-slate-400">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               Trained on authentic real-world production datasets with sub-millisecond inference
             </p>
           </div>
@@ -115,76 +121,77 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handleRetrain}
             disabled={retraining}
-            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-mono text-xs flex items-center gap-2 transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-mono text-xs font-semibold flex items-center gap-2 shadow-lg shadow-violet-500/20 transition-all disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${retraining ? 'animate-spin' : ''}`} />
-            {retraining ? 'Retraining Baseline & Models...' : 'Retrain Real Models'}
+            {retraining ? 'Retraining Real Models...' : 'Retrain Models'}
           </button>
           <span className="text-[10px] text-slate-500 font-mono">Synced: {lastRetrained}</span>
         </div>
       </div>
 
-      {/* Real Training Metrics Summary Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs font-mono">
-        <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg">
-          <div className="text-[10px] text-slate-500 flex items-center gap-1">
-            <Database className="w-3 h-3 text-cyan-400" /> Training Samples
+      {/* Real Training Metrics Bento Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-mono">
+        <div className="glass-card-sm p-3.5 border border-slate-700/40 space-y-1">
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+            <Database className="w-3 h-3 text-violet-400" /> Samples
           </div>
-          <div className="text-slate-100 font-bold text-sm mt-0.5">
+          <div className="text-white font-extrabold text-base mt-1">
             {sampleSize.toLocaleString()}
           </div>
           <div className="text-[9px] text-slate-400 truncate">
-            {benignCount.toLocaleString()} benign + {attackCount.toLocaleString()} attack
+            {benignCount.toLocaleString()} benign + {attackCount.toLocaleString()} atk
           </div>
         </div>
 
-        <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg">
-          <div className="text-[10px] text-slate-500 flex items-center gap-1">
+        <div className="glass-card-sm p-3.5 border border-slate-700/40 space-y-1">
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
             <ShieldCheck className="w-3 h-3 text-emerald-400" /> Accuracy
           </div>
-          <div className="text-emerald-400 font-bold text-sm mt-0.5">
+          <div className="text-emerald-400 font-extrabold text-base mt-1">
             {accuracyPct}
           </div>
           <div className="text-[9px] text-slate-400">Holdout validation</div>
         </div>
 
-        <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg">
-          <div className="text-[10px] text-slate-500 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-cyan-400" /> Precision
+        <div className="glass-card-sm p-3.5 border border-slate-700/40 space-y-1">
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+            <CheckCircle2 className="w-3 h-3 text-violet-400" /> Precision
           </div>
-          <div className="text-cyan-300 font-bold text-sm mt-0.5">
+          <div className="text-violet-300 font-extrabold text-base mt-1">
             {precisionPct}
           </div>
-          <div className="text-[9px] text-slate-400">Zero false alerts</div>
+          <div className="text-[9px] text-slate-400">Zero false alarms</div>
         </div>
 
-        <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg">
-          <div className="text-[10px] text-slate-500 flex items-center gap-1">
+        <div className="glass-card-sm p-3.5 border border-slate-700/40 space-y-1">
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
             <CheckCircle2 className="w-3 h-3 text-amber-400" /> Recall
           </div>
-          <div className="text-amber-300 font-bold text-sm mt-0.5">
+          <div className="text-amber-300 font-extrabold text-base mt-1">
             {recallPct}
           </div>
           <div className="text-[9px] text-slate-400">Threat catch rate</div>
         </div>
 
-        <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg">
-          <div className="text-[10px] text-slate-500 flex items-center gap-1">
+        <div className="glass-card-sm p-3.5 border border-slate-700/40 space-y-1">
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
             <CheckCircle2 className="w-3 h-3 text-purple-400" /> F1-Score
           </div>
-          <div className="text-purple-300 font-bold text-sm mt-0.5">
+          <div className="text-purple-300 font-extrabold text-base mt-1">
             {f1Pct}
           </div>
           <div className="text-[9px] text-slate-400">Harmonic mean</div>
         </div>
 
-        <div className="p-2.5 bg-slate-950/70 border border-slate-800/80 rounded-lg">
-          <div className="text-[10px] text-slate-500 flex items-center gap-1">
+        <div className="glass-card-sm p-3.5 border border-slate-700/40 space-y-1">
+          <div className="text-[10px] text-slate-500 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
             <Layers className="w-3 h-3 text-rose-400" /> ROC-AUC
           </div>
-          <div className="text-rose-400 font-bold text-sm mt-0.5">
+          <div className="text-rose-400 font-extrabold text-base mt-1">
             {rocAucPct}
           </div>
           <div className="text-[9px] text-slate-400">Discriminative power</div>
@@ -192,37 +199,37 @@ export function ModelPerformanceMetrics({ onTriggerRetrain }: Props) {
       </div>
 
       {/* Models List */}
-      <div className="space-y-3 font-mono text-xs overflow-y-auto max-h-[300px] pr-1 flex-1">
+      <div className="space-y-2.5 font-mono text-xs overflow-y-auto max-h-[300px] pr-1 flex-1">
         {models.map((m, idx) => (
           <div
             key={idx}
-            className="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80 hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            className="p-3.5 glass-card-sm border border-slate-700/40 hover:border-violet-500/40 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
           >
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-100">{m.name}</span>
-                <span className="text-[10px] text-slate-400">({m.type})</span>
+                <span className="font-bold text-white text-[13px]">{m.name}</span>
+                <span className="text-[10px] text-slate-500">({m.type})</span>
               </div>
               <div className="text-[11px] text-slate-400">
                 Features: <span className="text-slate-300">{m.features}</span>
               </div>
-              <div className="text-[10px] text-cyan-400/90">
+              <div className="text-[10px] text-violet-400/90 font-medium">
                 Performance: {m.performance}
               </div>
             </div>
 
             <div className="flex items-center gap-4 shrink-0">
               <div className="text-right">
-                <div className="text-[10px] text-slate-500">Inference</div>
-                <div className="text-slate-200 font-bold">{m.latency}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Inference</div>
+                <div className="text-white font-bold">{m.latency}</div>
               </div>
-              <span className={`px-2 py-0.5 rounded text-[10px] border font-bold ${m.badgeColor}`}>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] border font-bold ${m.badgeColor}`}>
                 {m.status}
               </span>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
